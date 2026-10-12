@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class BookingServiceTest {
 
     @Autowired private BookingService bookingService;
-    @Autowired private OrganizationRepository organizationRepository;
+    @Autowired private OrganisationRepository organisationRepository;
     @Autowired private VenueRepository venueRepository;
     @Autowired private CourtRepository courtRepository;
     @Autowired private TimeSlotRepository timeSlotRepository;
@@ -34,7 +34,7 @@ class BookingServiceTest {
 
     @BeforeEach
     void setUp() {
-        Organization org = organizationRepository.save(new Organization("Test Uni", "d", "t@example.com"));
+        Organisation org = organisationRepository.save(new Organisation("Test Uni", "d", "t@example.com"));
         Venue venue = venueRepository.save(new Venue("Venue", "addr", org));
         Court court = courtRepository.save(new Court("Court 1", "Volleyball", 12, venue));
         TimeSlot slot = timeSlotRepository.save(new TimeSlot(court,

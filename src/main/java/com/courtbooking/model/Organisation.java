@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-public class Organization {
+public class Organisation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,13 +18,13 @@ public class Organization {
     private String description;
     private String contactEmail;
 
-    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "organisation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Venue> venues = new ArrayList<>();
 
-    protected Organization() {
+    protected Organisation() {
     }
 
-    public Organization(String name, String description, String contactEmail) {
+    public Organisation(String name, String description, String contactEmail) {
         this.name = name;
         this.description = description;
         this.contactEmail = contactEmail;

@@ -38,3 +38,5 @@ out/
 
 # Local env files
 .env
+.DS_Store
+Icon?

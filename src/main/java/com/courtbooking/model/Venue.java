@@ -19,8 +19,8 @@ public class Venue {
     private String address;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organization_id", nullable = false)
-    private Organization organization;
+    @JoinColumn(name = "organisation_id", nullable = false)
+    private Organisation organisation;
 
     @OneToMany(mappedBy = "venue", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Court> courts = new ArrayList<>();
@@ -28,10 +28,10 @@ public class Venue {
     protected Venue() {
     }
 
-    public Venue(String name, String address, Organization organization) {
+    public Venue(String name, String address, Organisation organisation) {
         this.name = name;
         this.address = address;
-        this.organization = organization;
+        this.organisation = organisation;
     }
 
     public Long getId() {
@@ -54,12 +54,12 @@ public class Venue {
         this.address = address;
     }
 
-    public Organization getOrganization() {
-        return organization;
+    public Organisation getOrganisation() {
+        return organisation;
     }
 
-    public void setOrganization(Organization organization) {
-        this.organization = organization;
+    public void setOrganisation(Organisation organisation) {
+        this.organisation = organisation;
     }
 
     public List<Court> getCourts() {

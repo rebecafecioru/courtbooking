@@ -11,23 +11,23 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 /**
- * Seeds a couple of organizations, venues, courts and slots so the app is
+ * Seeds a couple of organisations, venues, courts and slots so the app is
  * demoable immediately after `./gradlew bootRun`, with no manual setup.
  */
 @Component
 public class DevDataSeeder implements CommandLineRunner {
 
-    private final OrganizationRepository organizationRepository;
+    private final OrganisationRepository organisationRepository;
     private final VenueRepository venueRepository;
     private final CourtRepository courtRepository;
     private final TimeSlotRepository timeSlotRepository;
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public DevDataSeeder(OrganizationRepository organizationRepository, VenueRepository venueRepository,
-                          CourtRepository courtRepository, TimeSlotRepository timeSlotRepository,
-                          AppUserRepository appUserRepository, PasswordEncoder passwordEncoder) {
-        this.organizationRepository = organizationRepository;
+    public DevDataSeeder(OrganisationRepository organisationRepository, VenueRepository venueRepository,
+                         CourtRepository courtRepository, TimeSlotRepository timeSlotRepository,
+                         AppUserRepository appUserRepository, PasswordEncoder passwordEncoder) {
+        this.organisationRepository = organisationRepository;
         this.venueRepository = venueRepository;
         this.courtRepository = courtRepository;
         this.timeSlotRepository = timeSlotRepository;
@@ -37,15 +37,15 @@ public class DevDataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (organizationRepository.count() > 0) {
+        if (organisationRepository.count() > 0) {
             return; // already seeded
         }
 
-        Organization uni = new Organization(
+        Organisation uni = new Organisation(
                 "University of Leicester Sports Centre",
                 "On-campus sports facilities open to students and the public.",
                 "sports@leicester-demo.ac.uk");
-        organizationRepository.save(uni);
+        organisationRepository.save(uni);
 
         Venue mainVenue = new Venue("Danielle Brown Sports Centre", "University Rd, Leicester", uni);
         venueRepository.save(mainVenue);
@@ -72,7 +72,7 @@ public class DevDataSeeder implements CommandLineRunner {
         // Demo accounts: admin/password123 and student/password123
         AppUser admin = new AppUser("Venue Admin", "admin@leicester-demo.ac.uk",
                 passwordEncoder.encode("password123"), Role.ORG_ADMIN);
-        admin.setOrganization(uni);
+        admin.setOrganisation(uni);
         appUserRepository.save(admin);
 
         AppUser student = new AppUser("Demo Student", "student@leicester-demo.ac.uk",

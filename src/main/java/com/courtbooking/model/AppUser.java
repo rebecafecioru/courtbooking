@@ -25,10 +25,10 @@ public class AppUser {
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    // Only set when role == ORG_ADMIN; which organization they administer
+    // Only set when role == ORG_ADMIN; which organisation they administer
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organization_id")
-    private Organization organization;
+    @JoinColumn(name = "organisation_id")
+    private Organisation organisation;
 
     protected AppUser() {
     }
@@ -76,11 +76,11 @@ public class AppUser {
         this.role = role;
     }
 
-    public Organization getOrganization() {
-        return organization;
+    public Organisation getOrganisation() {
+        return organisation;
     }
 
-    public void setOrganization(Organization organization) {
-        this.organization = organization;
+    public void setOrganisation(Organisation organisation) {
+        this.organisation = organisation;
     }
 }

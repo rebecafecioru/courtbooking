@@ -3,9 +3,9 @@ package com.courtbooking.controller;
 import com.courtbooking.dto.VenueDtos.CreateVenueRequest;
 import com.courtbooking.dto.VenueDtos.VenueResponse;
 import com.courtbooking.exception.ResourceNotFoundException;
-import com.courtbooking.model.Organization;
+import com.courtbooking.model.Organisation;
 import com.courtbooking.model.Venue;
-import com.courtbooking.repository.OrganizationRepository;
+import com.courtbooking.repository.OrganisationRepository;
 import com.courtbooking.repository.VenueRepository;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -17,17 +17,17 @@ import java.util.List;
 public class VenueController {
 
     private final VenueRepository venueRepository;
-    private final OrganizationRepository organizationRepository;
+    private final OrganisationRepository organisationRepository;
 
-    public VenueController(VenueRepository venueRepository, OrganizationRepository organizationRepository) {
+    public VenueController(VenueRepository venueRepository, OrganisationRepository organisationRepository) {
         this.venueRepository = venueRepository;
-        this.organizationRepository = organizationRepository;
+        this.organisationRepository = organisationRepository;
     }
 
     @GetMapping
-    public List<VenueResponse> getAll(@RequestParam(required = false) Long organizationId) {
-        List<Venue> venues = organizationId != null
-                ? venueRepository.findByOrganizationId(organizationId)
+    public List<VenueResponse> getAll(@RequestParam(required = false) Long organisationId) {
+        List<Venue> venues = organisationId != null
+                ? venueRepository.findByOrganisationId(organisationId)
                 : venueRepository.findAll();
         return venues.stream().map(VenueResponse::from).toList();
     }
@@ -41,8 +41,8 @@ public class VenueController {
 
     @PostMapping("/admin")
     public VenueResponse create(@Valid @RequestBody CreateVenueRequest request) {
-        Organization org = organizationRepository.findById(request.organizationId())
-                .orElseThrow(() -> new ResourceNotFoundException("Organization " + request.organizationId() + " not found"));
+        Organisation org = organisationRepository.findById(request.organisationId())
+                .orElseThrow(() -> new ResourceNotFoundException("Organisation " + request.organisationId() + " not found"));
         Venue venue = new Venue(request.name(), request.address(), org);
         return VenueResponse.from(venueRepository.save(venue));
     }

@@ -27,7 +27,7 @@ class BookingServiceConcurrencyTest {
     @Autowired
     private BookingService bookingService;
     @Autowired
-    private OrganizationRepository organizationRepository;
+    private OrganisationRepository organisationRepository;
     @Autowired
     private VenueRepository venueRepository;
     @Autowired
@@ -45,8 +45,8 @@ class BookingServiceConcurrencyTest {
 
     @BeforeEach
     void setUp() {
-        Organization org = organizationRepository.save(
-                new Organization("Test Uni", "desc", "test@example.com"));
+        Organisation org = organisationRepository.save(
+                new Organisation("Test Uni", "desc", "test@example.com"));
         Venue venue = venueRepository.save(new Venue("Test Venue", "123 Test St", org));
         Court court = courtRepository.save(new Court("Court 1", "Volleyball", 12, venue));
         TimeSlot slot = timeSlotRepository.save(

@@ -42,7 +42,7 @@ succeeds and one is rejected as a conflict — not "usually one," every time.
 
 ## Features
 
-- **Public browsing** — anyone can view organizations, venues, courts, and
+- **Public browsing** — anyone can view organisations, venues, courts, and
   live availability without an account
 - **Booking & cancellation** — logged-in users book a slot and can cancel
   their own bookings
@@ -72,7 +72,7 @@ cd courtbooking
 ```
 
 The app starts on `http://localhost:8080` with an in-memory database
-already seeded with a demo organization, two courts, a week of time slots,
+already seeded with a demo organisation, two courts, a week of time slots,
 and two accounts:
 
 | Role       | Email                          | Password    |
@@ -107,8 +107,8 @@ you don't run it, it's the part of this project I'm most proud of.
 |--------|----------------------------------------|-----------------|---------------------------------------|
 | POST   | `/api/auth/register`                   | Public          | Create an account                     |
 | POST   | `/api/auth/login`                      | Public          | Get a JWT                             |
-| GET    | `/api/organizations`                   | Public          | List organizations                    |
-| GET    | `/api/venues?organizationId=`          | Public          | List venues                           |
+| GET    | `/api/organisations`                   | Public          | List organisations                    |
+| GET    | `/api/venues?organisationId=`          | Public          | List venues                           |
 | GET    | `/api/courts?venueId=`                 | Public          | List courts                           |
 | GET    | `/api/courts/{id}/slots?from=&to=`     | Public          | Check availability                    |
 | POST   | `/api/bookings`                        | Authenticated   | Book a slot                           |
@@ -128,5 +128,5 @@ you don't run it, it's the part of this project I'm most proud of.
 ## Data model
 
 ```
-Organization 1---* Venue 1---* Court 1---* TimeSlot 1---0..1 Booking *---1 AppUser
+Organisation 1---* Venue 1---* Court 1---* TimeSlot 1---0..1 Booking *---1 AppUser
 ```
