@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import VenueList from './components/VenueList'
+import LoginForm from './components/LoginForm'
 
 function App() {
     const [organisations, setOrganisations] = useState([])
     const [selectedOrganisation, setSelectedOrganisation] = useState(null)
+    // null when logged out, otherwise { token, email, fullName, role }
+    const [user, setUser] = useState(null)
 
     useEffect(() => {
         fetch('http://localhost:8080/api/organisations')
@@ -14,6 +17,16 @@ function App() {
     return (
         <div>
             <h1>Court Booking</h1>
+
+            {user ? (
+                <p>
+                    Logged in as {user.fullName}{' '}
+                    <button onClick={() => setUser(null)}>Log out</button>
+                </p>
+            ) : (
+                <LoginForm onLogin={setUser} />
+            )}
+
             <h2>Organisations</h2>
             <ul>
                 {organisations.map(org => (
@@ -25,7 +38,9 @@ function App() {
                 ))}
             </ul>
 
-            {selectedOrganisation && <VenueList organisation={selectedOrganisation} />}
+            {selectedOrganisation && (
+                <VenueList organisation={selectedOrganisation} user={user} />
+            )}
         </div>
     )
 }

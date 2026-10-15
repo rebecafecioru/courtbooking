@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import CourtList from './CourtList'
 
-function VenueList({ organisation }) {
+function VenueList({ organisation, user }) {
     const [venues, setVenues] = useState([])
+    const [selectedVenue, setSelectedVenue] = useState(null)
 
     useEffect(() => {
         fetch(`http://localhost:8080/api/venues?organisationId=${organisation.id}`)
@@ -15,10 +17,16 @@ function VenueList({ organisation }) {
             <ul>
                 {venues.map(venue => (
                     <li key={venue.id}>
-                        {venue.name} — {venue.address}
+                        <button onClick={() => setSelectedVenue(venue)}>
+                            {venue.name} — {venue.address}
+                        </button>
                     </li>
                 ))}
             </ul>
+
+            {selectedVenue && (
+                <CourtList key={selectedVenue.id} venue={selectedVenue} user={user} />
+            )}
         </div>
     )
 }
