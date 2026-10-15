@@ -108,6 +108,12 @@ public class BookingService {
         refreshOverlaps(group);
     }
 
+    // The user's bookings, earliest first.
+    @Transactional(readOnly = true)
+    public List<Booking> getBookingsForUser(Long userId) {
+        return bookingRepository.findByUserWithDetails(userId);
+    }
+
     // Locks the slot plus the same time slot on every overlapping court.
     private List<TimeSlot> lockSlotGroup(Long timeSlotId) {
         TimeSlotRepository.SlotWindow window = timeSlotRepository.findWindowById(timeSlotId)

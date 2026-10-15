@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/bookings")
 public class BookingController {
@@ -18,6 +20,13 @@ public class BookingController {
 
     public BookingController(BookingService bookingService) {
         this.bookingService = bookingService;
+    }
+
+    @GetMapping("/me")
+    public List<BookingResponse> myBookings(@AuthenticationPrincipal(expression = "id") Long userId) {
+        return bookingService.getBookingsForUser(userId).stream()
+                .map(BookingResponse::from)
+                .toList();
     }
 
     @PostMapping
