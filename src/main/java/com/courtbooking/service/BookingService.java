@@ -2,15 +2,18 @@ package com.courtbooking.service;
 
 import com.courtbooking.exception.ResourceNotFoundException;
 import com.courtbooking.exception.SlotNotAvailableException;
+import com.courtbooking.exception.WaitlistException;
 import com.courtbooking.model.AppUser;
 import com.courtbooking.model.Booking;
 import com.courtbooking.model.Court;
 import com.courtbooking.model.SlotStatus;
 import com.courtbooking.model.TimeSlot;
+import com.courtbooking.model.WaitlistEntry;
 import com.courtbooking.repository.AppUserRepository;
 import com.courtbooking.repository.BookingRepository;
 import com.courtbooking.repository.CourtRepository;
 import com.courtbooking.repository.TimeSlotRepository;
+import com.courtbooking.repository.WaitlistEntryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +40,12 @@ import java.util.Set;
  * full hall). Booking the full hall marks both halves UNAVAILABLE for that
  * time, and booking a half marks the full hall UNAVAILABLE. Cancelling frees
  * them again, unless another booking still covers them.
+ * <p>
+ * Waitlist: users can queue for a taken slot. When a cancel frees a slot, the
+ * first person in line is booked into it automatically, inside the cancel's
+ * transaction while the slots are still locked, so nobody can grab it in
+ * between. Joining and leaving a waitlist take the same locks, so they can't
+ * race with a cancel either.
  */
 @Service
 public class BookingService {
@@ -45,15 +54,18 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final AppUserRepository appUserRepository;
     private final CourtRepository courtRepository;
+    private final WaitlistEntryRepository waitlistEntryRepository;
 
     public BookingService(TimeSlotRepository timeSlotRepository,
                           BookingRepository bookingRepository,
                           AppUserRepository appUserRepository,
-                          CourtRepository courtRepository) {
+                          CourtRepository courtRepository,
+                          WaitlistEntryRepository waitlistEntryRepository) {
         this.timeSlotRepository = timeSlotRepository;
         this.bookingRepository = bookingRepository;
         this.appUserRepository = appUserRepository;
         this.courtRepository = courtRepository;
+        this.waitlistEntryRepository = waitlistEntryRepository;
     }
 
     @Transactional
@@ -75,14 +87,7 @@ public class BookingService {
             throw new SlotNotAvailableException("Part of this space is already booked or closed at that time.");
         }
 
-        AppUser user = appUserRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User " + userId + " not found"));
-
-        slot.setStatus(SlotStatus.BOOKED);
-        timeSlotRepository.save(slot); // optimistic @Version check happens on commit
-        refreshOverlaps(group);
-
-        return bookingRepository.save(new Booking(slot, user)); // unique constraint is the final backstop
+        return confirmBooking(group, slot, findUser(userId));
     }
 
     @Transactional
@@ -95,7 +100,10 @@ public class BookingService {
         }
 
         Long slotId = booking.getTimeSlot().getId();
-        List<TimeSlot> group = lockSlotGroup(slotId);
+        // The whole hall, not just this slot's group: a promotion can hand out
+        // a different slot in the family (e.g. the full hall after a half is
+        // cancelled), and every slot that changes needs to be locked and refreshed.
+        List<TimeSlot> group = lockFamilyGroup(slotId);
         TimeSlot slot = findInGroup(group, slotId);
 
         // Deleted rather than soft-marked CANCELLED, because the unique
@@ -106,12 +114,115 @@ public class BookingService {
 
         slot.setStatus(SlotStatus.AVAILABLE);
         refreshOverlaps(group);
+        promoteFromWaitlist(group);
+    }
+
+    @Transactional
+    public WaitlistEntry joinWaitlist(Long timeSlotId, Long userId) {
+        // Locked like a cancel, so a cancel can't free the slot halfway through
+        // this check and leave the user queueing for a slot that's now free.
+        List<TimeSlot> group = lockFamilyGroup(timeSlotId);
+        TimeSlot slot = findInGroup(group, timeSlotId);
+
+        if (slot.getStatus() == SlotStatus.BLOCKED) {
+            throw new WaitlistException("This slot is closed, so there is no waitlist for it.");
+        }
+        if (slot.getStatus() == SlotStatus.AVAILABLE) {
+            throw new WaitlistException("This slot isn't booked, so there's no need to wait for it.");
+        }
+        boolean ownBooking = bookingRepository.findByTimeSlotId(timeSlotId)
+                .map(b -> b.getBookedBy().getId().equals(userId))
+                .orElse(false);
+        if (ownBooking) {
+            throw new WaitlistException("You have already booked this slot.");
+        }
+        if (waitlistEntryRepository.existsByTimeSlotIdAndUserId(timeSlotId, userId)) {
+            throw new WaitlistException("You are already on the waitlist for this slot.");
+        }
+
+        return waitlistEntryRepository.save(new WaitlistEntry(slot, findUser(userId)));
+    }
+
+    @Transactional
+    public void leaveWaitlist(Long entryId, Long userId) {
+        Long slotId = waitlistEntryRepository.findSlotIdByIdAndUserId(entryId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Waitlist place " + entryId + " not found"));
+
+        // Locked so this can't run halfway through a cancel that is promoting
+        // this very entry. Once we hold the lock, the entry may already be gone
+        // (promoted to a booking), which the delete count tells us.
+        lockFamilyGroup(slotId);
+        if (waitlistEntryRepository.deleteEntry(entryId) == 0) {
+            throw new ResourceNotFoundException(
+                    "Waitlist place " + entryId + " not found. You may have just been given the slot.");
+        }
+    }
+
+    // The user's waitlist places, earliest slot first.
+    @Transactional(readOnly = true)
+    public List<WaitlistEntry> getWaitlistForUser(Long userId) {
+        return waitlistEntryRepository.findByUserWithDetails(userId);
+    }
+
+    // 1 means next in line.
+    @Transactional(readOnly = true)
+    public long positionOf(WaitlistEntry entry) {
+        return waitlistEntryRepository.countByTimeSlotIdAndIdLessThanEqual(
+                entry.getTimeSlot().getId(), entry.getId());
     }
 
     // The user's bookings, earliest first.
     @Transactional(readOnly = true)
     public List<Booking> getBookingsForUser(Long userId) {
         return bookingRepository.findByUserWithDetails(userId);
+    }
+
+    // Marks the slot BOOKED and saves the booking. The caller must already hold
+    // the group's locks and have checked the slot is free.
+    private Booking confirmBooking(List<TimeSlot> group, TimeSlot slot, AppUser user) {
+        slot.setStatus(SlotStatus.BOOKED);
+        timeSlotRepository.save(slot); // optimistic @Version check happens on commit
+        refreshOverlaps(group);
+
+        return bookingRepository.save(new Booking(slot, user)); // unique constraint is the final backstop
+    }
+
+    // Gives freed slots in the group to the people waiting for them, first in
+    // line first. Called from cancelBooking while the group is still locked.
+    private void promoteFromWaitlist(List<TimeSlot> group) {
+        List<Long> slotIds = group.stream().map(TimeSlot::getId).toList();
+
+        for (WaitlistEntry entry : waitlistEntryRepository.findByTimeSlotIdInOrderByIdAsc(slotIds)) {
+            TimeSlot slot = findInGroup(group, entry.getTimeSlot().getId());
+            // Checked again for every entry: promoting an earlier one (e.g. to
+            // the full hall) may have made this slot UNAVAILABLE.
+            if (isFreeToBook(slot)) {
+                waitlistEntryRepository.delete(entry);
+                confirmBooking(group, slot, entry.getUser());
+            }
+        }
+    }
+
+    // Free means AVAILABLE and no overlapping space at that time is booked or
+    // closed. Only *overlapping* spaces count: Half B being booked doesn't stop
+    // Half A, so we can't just look at every other slot in the family group.
+    private boolean isFreeToBook(TimeSlot slot) {
+        if (slot.getStatus() != SlotStatus.AVAILABLE) {
+            return false;
+        }
+        List<Long> related = relatedCourtIds(slot.getCourt().getId());
+        if (related.isEmpty()) {
+            return true;
+        }
+        return !timeSlotRepository.existsByCourtIdInAndStartTimeAndEndTimeAndStatus(
+                related, slot.getStartTime(), slot.getEndTime(), SlotStatus.BOOKED)
+                && !timeSlotRepository.existsByCourtIdInAndStartTimeAndEndTimeAndStatus(
+                related, slot.getStartTime(), slot.getEndTime(), SlotStatus.BLOCKED);
+    }
+
+    private AppUser findUser(Long userId) {
+        return appUserRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User " + userId + " not found"));
     }
 
     // Locks the slot plus the same time slot on every overlapping court.
@@ -127,6 +238,28 @@ public class BookingService {
             ids.addAll(timeSlotRepository.findIdsByCourtsAndTime(
                     relatedCourtIds, window.getStartTime(), window.getEndTime()));
         }
+        return timeSlotRepository.findAllByIdForUpdate(ids);
+    }
+
+    // Locks every slot at this time across the whole hall: the top-level court
+    // and all of its sub-courts (e.g. the full hall and both halves). Courts are
+    // only ever one level deep, so the family is the parent plus its children.
+    // Same id ordering as lockSlotGroup, so the two can't deadlock each other.
+    private List<TimeSlot> lockFamilyGroup(Long timeSlotId) {
+        TimeSlotRepository.SlotWindow window = timeSlotRepository.findWindowById(timeSlotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Time slot " + timeSlotId + " not found"));
+
+        Court court = courtRepository.findById(window.getCourtId())
+                .orElseThrow(() -> new ResourceNotFoundException("Court " + window.getCourtId() + " not found"));
+        Court top = court.getParent() != null ? court.getParent() : court;
+
+        List<Long> familyCourtIds = new ArrayList<>();
+        familyCourtIds.add(top.getId());
+        courtRepository.findByParentId(top.getId()).forEach(c -> familyCourtIds.add(c.getId()));
+
+        Set<Long> ids = new HashSet<>(timeSlotRepository.findIdsByCourtsAndTime(
+                familyCourtIds, window.getStartTime(), window.getEndTime()));
+        ids.add(timeSlotId);
         return timeSlotRepository.findAllByIdForUpdate(ids);
     }
 
