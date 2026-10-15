@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,6 +30,7 @@ class BookingServiceTest {
     @Autowired private AppUserRepository appUserRepository;
     @Autowired private PasswordEncoder passwordEncoder;
 
+    private Court court;
     private Long slotId;
     private Long userId;
 
@@ -36,7 +38,7 @@ class BookingServiceTest {
     void setUp() {
         Organisation org = organisationRepository.save(new Organisation("Test Uni", "d", "t@example.com"));
         Venue venue = venueRepository.save(new Venue("Venue", "addr", org));
-        Court court = courtRepository.save(new Court("Court 1", "Volleyball", 12, venue));
+        court = courtRepository.save(new Court("Court 1", "Volleyball", 12, venue));
         TimeSlot slot = timeSlotRepository.save(new TimeSlot(court,
                 LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(1).plusHours(1)));
         slotId = slot.getId();
@@ -84,5 +86,33 @@ class BookingServiceTest {
 
         assertThrows(SlotNotAvailableException.class,
                 () -> bookingService.cancelBooking(booking.getId(), otherUserId));
+    }
+
+    @Test
+    void getBookingsForUserReturnsOnlyTheirBookingsEarliestFirst() {
+        Long laterSlotId = timeSlotRepository.save(new TimeSlot(court,
+                LocalDateTime.now().plusDays(2), LocalDateTime.now().plusDays(2).plusHours(1))).getId();
+        Long otherSlotId = timeSlotRepository.save(new TimeSlot(court,
+                LocalDateTime.now().plusDays(3), LocalDateTime.now().plusDays(3).plusHours(1))).getId();
+        Long otherUserId = appUserRepository.save(
+                new AppUser("Other", "other@test.com", passwordEncoder.encode("pw"), Role.PUBLIC_USER)).getId();
+
+        // booked out of order, to check the sorting
+        bookingService.bookSlot(laterSlotId, userId);
+        bookingService.bookSlot(slotId, userId);
+        bookingService.bookSlot(otherSlotId, otherUserId);
+
+        List<Booking> bookings = bookingService.getBookingsForUser(userId);
+
+        assertEquals(List.of(slotId, laterSlotId),
+                bookings.stream().map(b -> b.getTimeSlot().getId()).toList());
+    }
+
+    @Test
+    void getBookingsForUserIsEmptyAfterCancelling() {
+        Booking booking = bookingService.bookSlot(slotId, userId);
+        bookingService.cancelBooking(booking.getId(), userId);
+
+        assertTrue(bookingService.getBookingsForUser(userId).isEmpty());
     }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import SlotList from './SlotList'
 
-function CourtList({ venue, user }) {
+function CourtList({ venue, user, bookingsVersion, onBookingsChanged }) {
     const [courts, setCourts] = useState([])
     const [selectedCourt, setSelectedCourt] = useState(null)
 
@@ -25,7 +25,13 @@ function CourtList({ venue, user }) {
             </ul>
 
             {selectedCourt && (
-                <SlotList key={selectedCourt.id} court={selectedCourt} user={user} />
+                <SlotList
+                    key={selectedCourt.id}
+                    court={selectedCourt}
+                    user={user}
+                    bookingsVersion={bookingsVersion}
+                    onBookingsChanged={onBookingsChanged}
+                />
             )}
         </div>
     )
