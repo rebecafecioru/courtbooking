@@ -42,11 +42,6 @@ public interface TimeSlotRepository extends JpaRepository<TimeSlot, Long> {
     boolean existsByCourtIdInAndStartTimeAndEndTimeAndStatus(
             Collection<Long> courtIds, LocalDateTime start, LocalDateTime end, SlotStatus status);
 
-    // Used by org admins to block a single slot.
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select t from TimeSlot t where t.id = :id")
-    Optional<TimeSlot> findByIdForUpdate(@Param("id") Long id);
-
     // Locks a whole group of slots at once, always in id order, so two
     // bookings that touch the same group can never deadlock each other.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
