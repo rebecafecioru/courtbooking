@@ -32,7 +32,7 @@ public class CourtController {
         if (venueId != null) {
             courts = courtRepository.findByVenueId(venueId);
         } else if (sportType != null) {
-            courts = courtRepository.findBySportTypeIgnoreCase(sportType);
+            courts = courtRepository.findBySportTypeContainingIgnoreCase(sportType);
         } else {
             courts = courtRepository.findAll();
         }

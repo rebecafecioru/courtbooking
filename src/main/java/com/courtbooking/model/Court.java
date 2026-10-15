@@ -13,16 +13,23 @@ public class Court {
     private Long id;
 
     @NotBlank
-    private String name; // e.g. "Court 1"
+    private String name; // e.g. "Sports Hall - Half A"
 
     @NotBlank
-    private String sportType; // e.g. "Volleyball", "Badminton", "Basketball"
+    private String sportType; // e.g. "Volleyball, Basketball"
 
     private Integer capacity; // optional, e.g. max players
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "venue_id", nullable = false)
     private Venue venue;
+
+    // If this court is one half of a bigger space (e.g. Half A of the full
+    // sports hall), parent points at the full space. It is null for ordinary
+    // courts and for the full space itself.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_court_id")
+    private Court parent;
 
     @OneToMany(mappedBy = "court", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TimeSlot> timeSlots = new ArrayList<>();
@@ -35,6 +42,11 @@ public class Court {
         this.sportType = sportType;
         this.capacity = capacity;
         this.venue = venue;
+    }
+
+    public Court(String name, String sportType, Integer capacity, Venue venue, Court parent) {
+        this(name, sportType, capacity, venue);
+        this.parent = parent;
     }
 
     public Long getId() {
@@ -71,6 +83,14 @@ public class Court {
 
     public void setVenue(Venue venue) {
         this.venue = venue;
+    }
+
+    public Court getParent() {
+        return parent;
+    }
+
+    public void setParent(Court parent) {
+        this.parent = parent;
     }
 
     public List<TimeSlot> getTimeSlots() {

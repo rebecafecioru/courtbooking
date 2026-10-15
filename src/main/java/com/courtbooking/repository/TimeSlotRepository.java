@@ -9,22 +9,47 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface TimeSlotRepository extends JpaRepository<TimeSlot, Long> {
+
+    // Just the court and the time window of a slot, without loading the slot
+    // itself (so nothing stale is cached before we take the locks).
+    interface SlotWindow {
+        Long getCourtId();
+        LocalDateTime getStartTime();
+        LocalDateTime getEndTime();
+    }
 
     List<TimeSlot> findByCourtIdAndStartTimeBetween(Long courtId, LocalDateTime from, LocalDateTime to);
 
     List<TimeSlot> findByCourtIdAndStatusAndStartTimeBetween(
             Long courtId, SlotStatus status, LocalDateTime from, LocalDateTime to);
 
-    // Pessimistic lock: used inside BookingService so that, under load, a second
-    // transaction trying to book the same slot blocks until the first commits,
-    // rather than both reading AVAILABLE and racing. Combined with the @Version
-    // field on TimeSlot and the unique constraint on Booking, this gives three
-    // independent layers against double-booking.
+    @Query("select t.court.id as courtId, t.startTime as startTime, t.endTime as endTime "
+            + "from TimeSlot t where t.id = :id")
+    Optional<SlotWindow> findWindowById(@Param("id") Long id);
+
+    // Ids of the slots on the given courts covering exactly this time window.
+    @Query("select t.id from TimeSlot t where t.court.id in :courtIds "
+            + "and t.startTime = :start and t.endTime = :end")
+    List<Long> findIdsByCourtsAndTime(@Param("courtIds") Collection<Long> courtIds,
+                                      @Param("start") LocalDateTime start,
+                                      @Param("end") LocalDateTime end);
+
+    boolean existsByCourtIdInAndStartTimeAndEndTimeAndStatus(
+            Collection<Long> courtIds, LocalDateTime start, LocalDateTime end, SlotStatus status);
+
+    // Used by org admins to block a single slot.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from TimeSlot t where t.id = :id")
     Optional<TimeSlot> findByIdForUpdate(@Param("id") Long id);
+
+    // Locks a whole group of slots at once, always in id order, so two
+    // bookings that touch the same group can never deadlock each other.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from TimeSlot t where t.id in :ids order by t.id")
+    List<TimeSlot> findAllByIdForUpdate(@Param("ids") Collection<Long> ids);
 }
