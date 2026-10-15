@@ -37,9 +37,8 @@ public class AuthController {
         if (appUserRepository.existsByEmail(request.email())) {
             return ResponseEntity.status(409).build();
         }
-        Role role = request.role() != null ? request.role() : Role.PUBLIC_USER;
         AppUser user = new AppUser(request.fullName(), request.email(),
-                passwordEncoder.encode(request.password()), role);
+                passwordEncoder.encode(request.password()), Role.PUBLIC_USER);
         appUserRepository.save(user);
 
         String token = jwtUtil.generateToken(user.getEmail());

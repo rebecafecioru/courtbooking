@@ -1,17 +1,32 @@
 import { useState, useEffect } from 'react'
 import VenueList from './components/VenueList'
 import LoginForm from './components/LoginForm'
+import RegisterForm from './components/RegisterForm'
 import MyBookings from './components/MyBookings'
+import { loadSavedUser, saveUser, clearSavedUser } from './savedUser'
 
 function App() {
     const [organisations, setOrganisations] = useState([])
     const [selectedOrganisation, setSelectedOrganisation] = useState(null)
-    // null when logged out, otherwise { token, email, fullName, role }
-    const [user, setUser] = useState(null)
+    // null when logged out, otherwise { token, email, fullName, role }.
+    // Starts from localStorage, so a refresh keeps you logged in.
+    const [user, setUser] = useState(loadSavedUser)
+    // Logged out: show the log in form, or the register form instead
+    const [showRegister, setShowRegister] = useState(false)
     // Goes up by 1 whenever a booking is made or cancelled, so My Bookings
     // and the slot list both know to reload
     const [bookingsVersion, setBookingsVersion] = useState(0)
     const onBookingsChanged = () => setBookingsVersion(v => v + 1)
+
+    function handleLogin(newUser) {
+        saveUser(newUser)
+        setUser(newUser)
+    }
+
+    function handleLogout() {
+        clearSavedUser()
+        setUser(null)
+    }
 
     useEffect(() => {
         fetch('http://localhost:8080/api/organisations')
@@ -26,10 +41,24 @@ function App() {
             {user ? (
                 <p>
                     Logged in as {user.fullName}{' '}
-                    <button onClick={() => setUser(null)}>Log out</button>
+                    <button onClick={handleLogout}>Log out</button>
                 </p>
+            ) : showRegister ? (
+                <>
+                    <RegisterForm onLogin={handleLogin} />
+                    <p>
+                        Already have an account?{' '}
+                        <button onClick={() => setShowRegister(false)}>Log in</button>
+                    </p>
+                </>
             ) : (
-                <LoginForm onLogin={setUser} />
+                <>
+                    <LoginForm onLogin={handleLogin} />
+                    <p>
+                        No account yet?{' '}
+                        <button onClick={() => setShowRegister(true)}>Create one</button>
+                    </p>
+                </>
             )}
 
             {user && (
