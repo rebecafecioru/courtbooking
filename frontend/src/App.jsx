@@ -3,6 +3,7 @@ import VenueList from './components/VenueList'
 import LoginForm from './components/LoginForm'
 import RegisterForm from './components/RegisterForm'
 import MyBookings from './components/MyBookings'
+import MyWaitlist from './components/MyWaitlist'
 import { loadSavedUser, saveUser, clearSavedUser } from './savedUser'
 
 function App() {
@@ -13,8 +14,9 @@ function App() {
     const [user, setUser] = useState(loadSavedUser)
     // Logged out: show the log in form, or the register form instead
     const [showRegister, setShowRegister] = useState(false)
-    // Goes up by 1 whenever a booking is made or cancelled, so My Bookings
-    // and the slot list both know to reload
+    // Goes up by 1 whenever a booking or waitlist place is added or removed, so
+    // My Bookings, My Waitlist and the slot list all know to reload. (A cancel
+    // can turn someone's waitlist place into a booking.)
     const [bookingsVersion, setBookingsVersion] = useState(0)
     const onBookingsChanged = () => setBookingsVersion(v => v + 1)
 
@@ -26,6 +28,7 @@ function App() {
     function handleLogout() {
         clearSavedUser()
         setUser(null)
+        setShowRegister(false) // back to the log in form, not whichever was last open
     }
 
     useEffect(() => {
@@ -62,11 +65,18 @@ function App() {
             )}
 
             {user && (
-                <MyBookings
-                    user={user}
-                    bookingsVersion={bookingsVersion}
-                    onBookingsChanged={onBookingsChanged}
-                />
+                <>
+                    <MyBookings
+                        user={user}
+                        bookingsVersion={bookingsVersion}
+                        onBookingsChanged={onBookingsChanged}
+                    />
+                    <MyWaitlist
+                        user={user}
+                        bookingsVersion={bookingsVersion}
+                        onBookingsChanged={onBookingsChanged}
+                    />
+                </>
             )}
 
             <h2>Organisations</h2>

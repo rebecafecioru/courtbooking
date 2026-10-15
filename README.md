@@ -46,6 +46,10 @@ succeeds and one is rejected as a conflict — not "usually one," every time.
   live availability without an account
 - **Booking & cancellation** — logged-in users book a slot and can cancel
   their own bookings
+- **Waitlist** — queue for a taken slot; when it's cancelled, the first
+  person in line is booked into it automatically, inside the cancel's own
+  locked transaction, so nobody can grab it in between (see
+  `WaitlistConcurrencyTest`)
 - **Org admin tools** — venue/court creation, bulk time-slot generation
   (e.g. "every Mon/Wed/Fri, 9am–9pm, 1-hour slots"), and blocking slots for
   maintenance
@@ -112,7 +116,11 @@ you don't run it, it's the part of this project I'm most proud of.
 | GET    | `/api/courts?venueId=`                 | Public          | List courts                           |
 | GET    | `/api/courts/{id}/slots?from=&to=`     | Public          | Check availability                    |
 | POST   | `/api/bookings`                        | Authenticated   | Book a slot                           |
+| GET    | `/api/bookings/me`                     | Authenticated   | Your bookings                         |
 | DELETE | `/api/bookings/{id}`                   | Authenticated   | Cancel your own booking               |
+| POST   | `/api/waitlist`                        | Authenticated   | Join the waitlist for a taken slot    |
+| GET    | `/api/waitlist/me`                     | Authenticated   | Your waitlist places                  |
+| DELETE | `/api/waitlist/{id}`                   | Authenticated   | Leave a waitlist                      |
 | POST   | `/api/venues/admin`                    | Org/Super Admin | Create a venue                        |
 | POST   | `/api/courts/admin`                    | Org/Super Admin | Create a court                        |
 | POST   | `/api/admin/slots/generate`            | Org/Super Admin | Bulk-generate time slots              |
@@ -120,13 +128,13 @@ you don't run it, it's the part of this project I'm most proud of.
 
 ## What's next
 
-- React frontend (in progress)
-- Email/SMS booking confirmations
+- Admin screens in the React frontend
+- Email/SMS booking confirmations (including "you got a slot from the waitlist")
 - Recurring bookings for regular club sessions
-- Waitlist when a slot is full
 
 ## Data model
 
 ```
 Organisation 1---* Venue 1---* Court 1---* TimeSlot 1---0..1 Booking *---1 AppUser
+                                               TimeSlot 1---* WaitlistEntry *---1 AppUser
 ```
