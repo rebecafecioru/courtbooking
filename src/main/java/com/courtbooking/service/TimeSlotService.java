@@ -61,11 +61,6 @@ public class TimeSlotService {
         return timeSlotRepository.saveAll(created);
     }
 
-    @Transactional
-    public void blockSlot(Long slotId) {
-        TimeSlot slot = timeSlotRepository.findByIdForUpdate(slotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Slot " + slotId + " not found"));
-        slot.setStatus(SlotStatus.BLOCKED);
-        timeSlotRepository.save(slot);
-    }
+    // Blocking and unblocking live in BookingService: they need the same locks
+    // as booking and cancelling, and unblocking can hand a slot to the waitlist.
 }

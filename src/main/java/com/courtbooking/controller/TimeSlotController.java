@@ -3,6 +3,7 @@ package com.courtbooking.controller;
 import com.courtbooking.dto.CreateSlotsRequest;
 import com.courtbooking.dto.TimeSlotResponse;
 import com.courtbooking.model.TimeSlot;
+import com.courtbooking.service.BookingService;
 import com.courtbooking.service.TimeSlotService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -17,9 +18,11 @@ import java.util.List;
 public class TimeSlotController {
 
     private final TimeSlotService timeSlotService;
+    private final BookingService bookingService;
 
-    public TimeSlotController(TimeSlotService timeSlotService) {
+    public TimeSlotController(TimeSlotService timeSlotService, BookingService bookingService) {
         this.timeSlotService = timeSlotService;
+        this.bookingService = bookingService;
     }
 
     // Public: browse available slots for a court within a date range
@@ -42,10 +45,17 @@ public class TimeSlotController {
         return ResponseEntity.ok(created.stream().map(TimeSlotResponse::from).toList());
     }
 
-    // Org admin: block a slot (e.g. maintenance)
+    // Org admin: block a slot (e.g. maintenance). 409 if it's booked.
     @PatchMapping("/admin/slots/{slotId}/block")
     public ResponseEntity<Void> blockSlot(@PathVariable Long slotId) {
-        timeSlotService.blockSlot(slotId);
+        bookingService.blockSlot(slotId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // Org admin: reopen a blocked slot; anyone waiting for it gets it
+    @PatchMapping("/admin/slots/{slotId}/unblock")
+    public ResponseEntity<Void> unblockSlot(@PathVariable Long slotId) {
+        bookingService.unblockSlot(slotId);
         return ResponseEntity.noContent().build();
     }
 }

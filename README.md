@@ -52,7 +52,8 @@ succeeds and one is rejected as a conflict — not "usually one," every time.
   `WaitlistConcurrencyTest`)
 - **Org admin tools** — venue/court creation, bulk time-slot generation
   (e.g. "every Mon/Wed/Fri, 9am–9pm, 1-hour slots"), and blocking slots for
-  maintenance
+  maintenance (refused while the space is booked; unblocking hands the slot
+  to the first person on its waitlist)
 - **JWT authentication** with role-based access (`PUBLIC_USER`,
   `ORG_ADMIN`, `SUPER_ADMIN`)
 - **Zero-setup local dev** — runs on an in-memory H2 database with seed
@@ -125,6 +126,7 @@ you don't run it, it's the part of this project I'm most proud of.
 | POST   | `/api/courts/admin`                    | Org/Super Admin | Create a court                        |
 | POST   | `/api/admin/slots/generate`            | Org/Super Admin | Bulk-generate time slots              |
 | PATCH  | `/api/admin/slots/{id}/block`          | Org/Super Admin | Block a slot (e.g. maintenance)       |
+| PATCH  | `/api/admin/slots/{id}/unblock`        | Org/Super Admin | Reopen a blocked slot                 |
 
 ## What's next
 
