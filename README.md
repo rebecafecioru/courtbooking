@@ -86,8 +86,7 @@ and three accounts:
 | Public User| student@leicester-demo.ac.uk    | password123 |
 | Super Admin| superadmin@courtbooking-demo.dev | password123 |
 
-The Super Admin account is only created in local dev (not on the `postgres`
-profile). Use it to create org admins with `POST /api/admin/org-admins`.
+Use the Super Admin to create org admins with `POST /api/admin/org-admins`.
 
 The H2 console is available at `http://localhost:8080/h2-console`
 (JDBC URL: `jdbc:h2:mem:courtbooking`).
@@ -100,6 +99,17 @@ To run against a real Postgres database instead:
 
 with `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `JWT_SECRET` set as
 environment variables.
+
+The demo data and accounts above are **not** created on the `postgres`
+profile, because their passwords are public. A new database therefore has no
+admin. To make the first one, sign up through the app as normal, then
+promote that account directly in the database:
+
+```sql
+UPDATE app_user SET role = 'SUPER_ADMIN' WHERE email = 'you@example.com';
+```
+
+From then on, that Super Admin can create org admins through the API.
 
 ## Running the tests
 
