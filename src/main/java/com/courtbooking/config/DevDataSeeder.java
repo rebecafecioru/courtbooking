@@ -3,6 +3,8 @@ package com.courtbooking.config;
 import com.courtbooking.model.*;
 import com.courtbooking.repository.*;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -34,16 +36,19 @@ public class DevDataSeeder implements CommandLineRunner {
     private final TimeSlotRepository timeSlotRepository;
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Environment environment;
 
     public DevDataSeeder(OrganisationRepository organisationRepository, VenueRepository venueRepository,
                          CourtRepository courtRepository, TimeSlotRepository timeSlotRepository,
-                         AppUserRepository appUserRepository, PasswordEncoder passwordEncoder) {
+                         AppUserRepository appUserRepository, PasswordEncoder passwordEncoder,
+                         Environment environment) {
         this.organisationRepository = organisationRepository;
         this.venueRepository = venueRepository;
         this.courtRepository = courtRepository;
         this.timeSlotRepository = timeSlotRepository;
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
+        this.environment = environment;
     }
 
     @Override
@@ -98,6 +103,13 @@ public class DevDataSeeder implements CommandLineRunner {
         AppUser student = new AppUser("Demo Student", "student@leicester-demo.ac.uk",
                 passwordEncoder.encode("password123"), Role.PUBLIC_USER);
         appUserRepository.save(student);
+
+        // superadmin/password123 can do anything, including making org admins,
+        // so it is only seeded for local dev, never on the postgres profile.
+        if (!environment.acceptsProfiles(Profiles.of("postgres"))) {
+            appUserRepository.save(new AppUser("Platform Admin", "superadmin@courtbooking-demo.dev",
+                    passwordEncoder.encode("password123"), Role.SUPER_ADMIN));
+        }
     }
 
     // Saves one bookable space plus a week of hourly demo slots (9am-9pm).

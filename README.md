@@ -78,12 +78,16 @@ cd courtbooking
 
 The app starts on `http://localhost:8080` with an in-memory database
 already seeded with a demo organisation, two courts, a week of time slots,
-and two accounts:
+and three accounts:
 
 | Role       | Email                          | Password    |
 |------------|---------------------------------|-------------|
 | Org Admin  | admin@leicester-demo.ac.uk      | password123 |
 | Public User| student@leicester-demo.ac.uk    | password123 |
+| Super Admin| superadmin@courtbooking-demo.dev | password123 |
+
+The Super Admin account is only created in local dev (not on the `postgres`
+profile). Use it to create org admins with `POST /api/admin/org-admins`.
 
 The H2 console is available at `http://localhost:8080/h2-console`
 (JDBC URL: `jdbc:h2:mem:courtbooking`).
