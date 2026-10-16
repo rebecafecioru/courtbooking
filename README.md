@@ -122,11 +122,15 @@ you don't run it, it's the part of this project I'm most proud of.
 | POST   | `/api/waitlist`                        | Authenticated   | Join the waitlist for a taken slot    |
 | GET    | `/api/waitlist/me`                     | Authenticated   | Your waitlist places                  |
 | DELETE | `/api/waitlist/{id}`                   | Authenticated   | Leave a waitlist                      |
-| POST   | `/api/venues/admin`                    | Org/Super Admin | Create a venue                        |
-| POST   | `/api/courts/admin`                    | Org/Super Admin | Create a court                        |
-| POST   | `/api/admin/slots/generate`            | Org/Super Admin | Bulk-generate time slots              |
-| PATCH  | `/api/admin/slots/{id}/block`          | Org/Super Admin | Block a slot (e.g. maintenance)       |
-| PATCH  | `/api/admin/slots/{id}/unblock`        | Org/Super Admin | Reopen a blocked slot                 |
+| POST   | `/api/venues/admin`                    | Own-org admin / Super Admin | Create a venue                        |
+| POST   | `/api/courts/admin`                    | Own-org admin / Super Admin | Create a court                        |
+| POST   | `/api/admin/slots/generate`            | Own-org admin / Super Admin | Bulk-generate time slots              |
+| PATCH  | `/api/admin/slots/{id}/block`          | Own-org admin / Super Admin | Block a slot (e.g. maintenance)       |
+| PATCH  | `/api/admin/slots/{id}/unblock`        | Own-org admin / Super Admin | Reopen a blocked slot                 |
+
+"Own-org admin" means an `ORG_ADMIN` can only act on venues, courts and slots
+that belong to their own organisation; anything else returns `403`. A
+`SUPER_ADMIN` can act on every organisation.
 
 ## What's next
 

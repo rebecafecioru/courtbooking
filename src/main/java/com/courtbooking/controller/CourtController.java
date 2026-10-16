@@ -1,5 +1,6 @@
 package com.courtbooking.controller;
 
+import com.courtbooking.config.AppUserPrincipal;
 import com.courtbooking.dto.CourtDtos.CreateCourtRequest;
 import com.courtbooking.dto.CourtDtos.CourtResponse;
 import com.courtbooking.exception.ResourceNotFoundException;
@@ -7,7 +8,9 @@ import com.courtbooking.model.Court;
 import com.courtbooking.model.Venue;
 import com.courtbooking.repository.CourtRepository;
 import com.courtbooking.repository.VenueRepository;
+import com.courtbooking.service.OrgAccessService;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,10 +21,13 @@ public class CourtController {
 
     private final CourtRepository courtRepository;
     private final VenueRepository venueRepository;
+    private final OrgAccessService orgAccessService;
 
-    public CourtController(CourtRepository courtRepository, VenueRepository venueRepository) {
+    public CourtController(CourtRepository courtRepository, VenueRepository venueRepository,
+                           OrgAccessService orgAccessService) {
         this.courtRepository = courtRepository;
         this.venueRepository = venueRepository;
+        this.orgAccessService = orgAccessService;
     }
 
     @GetMapping
@@ -40,7 +46,9 @@ public class CourtController {
     }
 
     @PostMapping("/admin")
-    public CourtResponse create(@Valid @RequestBody CreateCourtRequest request) {
+    public CourtResponse create(@Valid @RequestBody CreateCourtRequest request,
+                                @AuthenticationPrincipal AppUserPrincipal admin) {
+        orgAccessService.checkCanManageVenue(admin, request.venueId());
         Venue venue = venueRepository.findById(request.venueId())
                 .orElseThrow(() -> new ResourceNotFoundException("Venue " + request.venueId() + " not found"));
         Court court = new Court(request.name(), request.sportType(), request.capacity(), venue);
