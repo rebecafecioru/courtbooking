@@ -127,10 +127,17 @@ you don't run it, it's the part of this project I'm most proud of.
 | POST   | `/api/admin/slots/generate`            | Own-org admin / Super Admin | Bulk-generate time slots              |
 | PATCH  | `/api/admin/slots/{id}/block`          | Own-org admin / Super Admin | Block a slot (e.g. maintenance)       |
 | PATCH  | `/api/admin/slots/{id}/unblock`        | Own-org admin / Super Admin | Reopen a blocked slot                 |
+| POST   | `/api/admin/org-admins`                | Super Admin     | Create an org admin for an organisation |
+| PATCH  | `/api/admin/users/{id}/organisation`   | Super Admin     | Make an existing user the org admin of an organisation |
 
 "Own-org admin" means an `ORG_ADMIN` can only act on venues, courts and slots
 that belong to their own organisation; anything else returns `403`. A
 `SUPER_ADMIN` can act on every organisation.
+
+Only a `SUPER_ADMIN` can create org admins or assign a user to an
+organisation; anyone else gets `403`. An unknown user or organisation returns
+`404`, a taken email `409`, and a `SUPER_ADMIN` can't be turned into an org
+admin (`409`).
 
 ## What's next
 

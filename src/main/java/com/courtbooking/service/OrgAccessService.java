@@ -53,6 +53,13 @@ public class OrgAccessService {
                 .orElseThrow(() -> new ResourceNotFoundException("Time slot " + slotId + " not found")));
     }
 
+    // For platform-level actions such as creating org admins
+    public void checkIsSuperAdmin(AppUserPrincipal admin) {
+        if (admin.getRole() != Role.SUPER_ADMIN) {
+            throw new AccessDeniedException("Only a super admin can do this");
+        }
+    }
+
     private void check(AppUserPrincipal admin, Long organisationId) {
         if (admin.getRole() == Role.SUPER_ADMIN) {
             return;
