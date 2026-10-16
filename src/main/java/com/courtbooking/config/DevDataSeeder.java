@@ -3,8 +3,7 @@ package com.courtbooking.config;
 import com.courtbooking.model.*;
 import com.courtbooking.repository.*;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -18,8 +17,12 @@ import java.util.List;
  * Seeds demo data so the app is usable straight after startup.
  * The venues and facilities follow what the University of Leicester lists
  * publicly. The time slots are demo slots, not the real timetable.
+ *
+ * Local dev only: the demo accounts have well-known passwords, so it never
+ * runs on the postgres (real database) profile.
  */
 @Component
+@Profile("!postgres")
 public class DevDataSeeder implements CommandLineRunner {
 
     // Each sports hall is one floor marked for several sports, so the HALL is
@@ -36,19 +39,16 @@ public class DevDataSeeder implements CommandLineRunner {
     private final TimeSlotRepository timeSlotRepository;
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
-    private final Environment environment;
 
     public DevDataSeeder(OrganisationRepository organisationRepository, VenueRepository venueRepository,
                          CourtRepository courtRepository, TimeSlotRepository timeSlotRepository,
-                         AppUserRepository appUserRepository, PasswordEncoder passwordEncoder,
-                         Environment environment) {
+                         AppUserRepository appUserRepository, PasswordEncoder passwordEncoder) {
         this.organisationRepository = organisationRepository;
         this.venueRepository = venueRepository;
         this.courtRepository = courtRepository;
         this.timeSlotRepository = timeSlotRepository;
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
-        this.environment = environment;
     }
 
     @Override
@@ -104,12 +104,9 @@ public class DevDataSeeder implements CommandLineRunner {
                 passwordEncoder.encode("password123"), Role.PUBLIC_USER);
         appUserRepository.save(student);
 
-        // superadmin/password123 can do anything, including making org admins,
-        // so it is only seeded for local dev, never on the postgres profile.
-        if (!environment.acceptsProfiles(Profiles.of("postgres"))) {
-            appUserRepository.save(new AppUser("Platform Admin", "superadmin@courtbooking-demo.dev",
-                    passwordEncoder.encode("password123"), Role.SUPER_ADMIN));
-        }
+        // superadmin/password123 can do anything, including making org admins
+        appUserRepository.save(new AppUser("Platform Admin", "superadmin@courtbooking-demo.dev",
+                passwordEncoder.encode("password123"), Role.SUPER_ADMIN));
     }
 
     // Saves one bookable space plus a week of hourly demo slots (9am-9pm).
