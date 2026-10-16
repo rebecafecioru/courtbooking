@@ -1,6 +1,7 @@
 package com.courtbooking.config;
 
 import com.courtbooking.model.AppUser;
+import com.courtbooking.model.Role;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -11,13 +12,26 @@ import java.util.List;
 public class AppUserPrincipal implements UserDetails {
 
     private final AppUser appUser;
+    // Read once here: the organisation is a lazy proxy, and asking a proxy for
+    // its id doesn't need the session that loaded it.
+    private final Long organisationId;
 
     public AppUserPrincipal(AppUser appUser) {
         this.appUser = appUser;
+        this.organisationId = appUser.getOrganisation() != null ? appUser.getOrganisation().getId() : null;
     }
 
     public Long getId() {
         return appUser.getId();
+    }
+
+    public Role getRole() {
+        return appUser.getRole();
+    }
+
+    // The organisation an ORG_ADMIN administers; null for everyone else
+    public Long getOrganisationId() {
+        return organisationId;
     }
 
     @Override

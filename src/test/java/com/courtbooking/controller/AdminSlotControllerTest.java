@@ -43,7 +43,9 @@ class AdminSlotControllerTest {
         Court court = courtRepository.save(new Court("Court 1", "Volleyball", 12, venue));
         slotId = timeSlotRepository.save(new TimeSlot(court,
                 LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(1).plusHours(1))).getId();
-        appUserRepository.save(new AppUser("Admin", "admin@admin.test", passwordEncoder.encode("pw"), Role.ORG_ADMIN));
+        AppUser admin = new AppUser("Admin", "admin@admin.test", passwordEncoder.encode("pw"), Role.ORG_ADMIN);
+        admin.setOrganisation(org);
+        appUserRepository.save(admin);
         playerId = appUserRepository.save(
                 new AppUser("Player", "player@admin.test", passwordEncoder.encode("pw"), Role.PUBLIC_USER)).getId();
     }

@@ -32,6 +32,10 @@ public interface TimeSlotRepository extends JpaRepository<TimeSlot, Long> {
             + "from TimeSlot t where t.id = :id")
     Optional<SlotWindow> findWindowById(@Param("id") Long id);
 
+    // Which organisation owns this slot's court (for admin access checks)
+    @Query("select t.court.venue.organisation.id from TimeSlot t where t.id = :id")
+    Optional<Long> findOrganisationIdById(@Param("id") Long id);
+
     // Ids of the slots on the given courts covering exactly this time window.
     @Query("select t.id from TimeSlot t where t.court.id in :courtIds "
             + "and t.startTime = :start and t.endTime = :end")
