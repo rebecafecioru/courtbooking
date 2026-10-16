@@ -42,6 +42,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/organisations/**", "/api/venues/**",
                                 "/api/courts/**", "/api/courts/*/slots").permitAll()
+                        // Super-admin only: creating org admins and giving users an organisation
+                        .requestMatchers("/api/admin/org-admins/**", "/api/admin/users/**")
+                        .hasRole("SUPER_ADMIN")
                         // Org-admin only: creating venues/courts/slots
                         .requestMatchers("/api/*/admin/**", "/api/admin/**")
                         .hasAnyRole("ORG_ADMIN", "SUPER_ADMIN")
