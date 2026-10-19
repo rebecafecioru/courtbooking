@@ -45,6 +45,16 @@ public class TimeSlotService {
      * a double booking the locking in BookingService can't see, because it
      * locks per slot. (Two admins generating for the same court at the same
      * instant could still race; that's rare enough to leave for now.)
+     * <p>
+     * A new slot starts UNAVAILABLE instead of AVAILABLE if a slot on an
+     * overlapping space (the full hall, or one of its halves) whose time
+     * overlaps it is BOOKED or BLOCKED, the same rule BookingService applies.
+     * Those slots are locked first, in id order like BookingService, so a
+     * booking or cancel already under way finishes before we read them and
+     * one that comes after waits for us. (A booking that worked out which
+     * slots to lock just before ours were inserted won't refresh them; booking
+     * one of them is still refused, it just shows AVAILABLE until the next
+     * change in that hall.)
      */
     @Transactional
     public List<TimeSlot> generateSlots(CreateSlotsRequest req) {
@@ -55,6 +65,12 @@ public class TimeSlotService {
         List<TimeSlot> existing = timeSlotRepository.findByCourtIdAndStartTimeBetween(court.getId(),
                 req.fromDate().minusDays(1).atStartOfDay(), req.toDate().plusDays(1).atStartOfDay());
 
+        // The booked or closed slots on overlapping spaces in the date range, read under lock
+        List<TimeSlot> taken = lockRelatedSlots(court,
+                req.fromDate().atStartOfDay(), req.toDate().plusDays(1).atStartOfDay()).stream()
+                .filter(t -> t.getStatus() == SlotStatus.BOOKED || t.getStatus() == SlotStatus.BLOCKED)
+                .toList();
+
         List<TimeSlot> created = new ArrayList<>();
         var date = req.fromDate();
         while (!date.isAfter(req.toDate())) {
@@ -64,7 +80,11 @@ public class TimeSlotService {
                 while (slotStart.plusMinutes(req.slotDurationMinutes()).compareTo(dayEnd) <= 0) {
                     var slotEnd = slotStart.plusMinutes(req.slotDurationMinutes());
                     if (!overlapsAny(existing, slotStart, slotEnd)) {
-                        created.add(new TimeSlot(court, slotStart, slotEnd));
+                        TimeSlot slot = new TimeSlot(court, slotStart, slotEnd);
+                        if (overlapsAny(taken, slotStart, slotEnd)) {
+                            slot.setStatus(SlotStatus.UNAVAILABLE);
+                        }
+                        created.add(slot);
                     }
                     slotStart = slotEnd;
                 }
@@ -72,6 +92,21 @@ public class TimeSlotService {
             date = date.plusDays(1);
         }
         return timeSlotRepository.saveAll(created);
+    }
+
+    // Locks the slots on the courts sharing space with this one (its parent and
+    // its children) that overlap the time window.
+    private List<TimeSlot> lockRelatedSlots(Court court, LocalDateTime start, LocalDateTime end) {
+        List<Long> relatedCourtIds = new ArrayList<>();
+        if (court.getParent() != null) {
+            relatedCourtIds.add(court.getParent().getId());
+        }
+        courtRepository.findByParentId(court.getId()).forEach(c -> relatedCourtIds.add(c.getId()));
+        if (relatedCourtIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = timeSlotRepository.findIdsByCourtsOverlapping(relatedCourtIds, start, end);
+        return ids.isEmpty() ? List.of() : timeSlotRepository.findAllByIdForUpdate(ids);
     }
 
     // Two time ranges overlap if each starts before the other ends.
