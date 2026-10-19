@@ -138,6 +138,7 @@ you don't run it, it's the part of this project I'm most proud of.
 | POST   | `/api/waitlist`                        | Authenticated   | Join the waitlist for a taken slot    |
 | GET    | `/api/waitlist/me`                     | Authenticated   | Your waitlist places                  |
 | DELETE | `/api/waitlist/{id}`                   | Authenticated   | Leave a waitlist                      |
+| POST   | `/api/organisations/admin`             | Super Admin     | Create an organisation                |
 | POST   | `/api/venues/admin`                    | Own-org admin / Super Admin | Create a venue                        |
 | POST   | `/api/courts/admin`                    | Own-org admin / Super Admin | Create a court                        |
 | POST   | `/api/admin/slots/generate`            | Own-org admin / Super Admin | Bulk-generate time slots              |
@@ -150,8 +151,8 @@ you don't run it, it's the part of this project I'm most proud of.
 that belong to their own organisation; anything else returns `403`. A
 `SUPER_ADMIN` can act on every organisation.
 
-Only a `SUPER_ADMIN` can create org admins or assign a user to an
-organisation; anyone else gets `403`. An unknown user or organisation returns
+Only a `SUPER_ADMIN` can create organisations, create org admins or assign a
+user to an organisation; anyone else gets `403`. An unknown user or organisation returns
 `404`, a taken email `409`, and a `SUPER_ADMIN` can't be turned into an org
 admin (`409`).
 
