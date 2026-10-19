@@ -1,5 +1,6 @@
 package com.courtbooking.controller;
 
+import com.courtbooking.dto.CreateOrganisationRequest;
 import com.courtbooking.dto.OrganisationResponse;
 import com.courtbooking.exception.ResourceNotFoundException;
 import com.courtbooking.model.Organisation;
@@ -34,8 +35,10 @@ public class OrganisationController {
         return OrganisationResponse.from(org);
     }
 
+    // Super admin only (see SecurityConfig)
     @PostMapping("/admin")
-    public ResponseEntity<OrganisationResponse> create(@Valid @RequestBody Organisation organisation) {
+    public ResponseEntity<OrganisationResponse> create(@Valid @RequestBody CreateOrganisationRequest request) {
+        Organisation organisation = new Organisation(request.name(), request.description(), request.contactEmail());
         return ResponseEntity.ok(OrganisationResponse.from(organisationRepository.save(organisation)));
     }
 }
