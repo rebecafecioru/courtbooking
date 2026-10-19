@@ -28,10 +28,14 @@ import java.util.Set;
  * The point of this service is that two people can never end up with the same
  * physical space at the same time. It defends against that in layers:
  * <p>
- * 1. Pessimistic locks - every slot that could clash (the slot itself plus
- *    every slot on an overlapping space whose time overlaps it) is locked
- *    together, in id order, so a concurrent request has to wait for the first
- *    one to finish.
+ * 1. Pessimistic locks - first the hall's top-level court row (the full
+ *    hall, or the court itself if it has no parent), then every slot that
+ *    could clash (the slot itself plus every slot on an overlapping space
+ *    whose time overlaps it) together, in id order, so a concurrent request
+ *    has to wait for the first one to finish. The court lock is what covers
+ *    slots that don't exist yet: slot generation takes it too, so a request
+ *    never works out which slots to lock while new ones are being added.
+ *    Always court first, then slots, so nothing can deadlock.
  * 2. Optimistic version check (@Version on TimeSlot) - a backstop if a slot is
  *    ever changed outside this locked path.
  * 3. A unique constraint on booking.time_slot_id - the database itself refuses
@@ -295,10 +299,11 @@ public class BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("User " + userId + " not found"));
     }
 
-    // Locks the slot plus every slot on an overlapping court whose time overlaps it.
+    // Locks the hall, then the slot plus every slot on an overlapping court whose time overlaps it.
     private List<TimeSlot> lockSlotGroup(Long timeSlotId) {
         TimeSlotRepository.SlotWindow window = timeSlotRepository.findWindowById(timeSlotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Time slot " + timeSlotId + " not found"));
+        lockHall(window.getCourtId());
 
         Set<Long> ids = new HashSet<>();
         ids.add(timeSlotId);
@@ -325,9 +330,7 @@ public class BookingService {
         TimeSlotRepository.SlotWindow window = timeSlotRepository.findWindowById(timeSlotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Time slot " + timeSlotId + " not found"));
 
-        Court court = courtRepository.findById(window.getCourtId())
-                .orElseThrow(() -> new ResourceNotFoundException("Court " + window.getCourtId() + " not found"));
-        Court top = court.getParent() != null ? court.getParent() : court;
+        Court top = lockHall(window.getCourtId());
 
         List<Long> familyCourtIds = new ArrayList<>();
         familyCourtIds.add(top.getId());
@@ -344,6 +347,16 @@ public class BookingService {
                 hasSpan ? span.getSpanEnd() : window.getEndTime()));
         ids.add(timeSlotId);
         return timeSlotRepository.findAllByIdForUpdate(ids);
+    }
+
+    // Locks the top-level court of this court's hall (its parent, or itself if
+    // it has none) and returns it. Taken before any slot locks; see the class comment.
+    private Court lockHall(Long courtId) {
+        Court court = courtRepository.findById(courtId)
+                .orElseThrow(() -> new ResourceNotFoundException("Court " + courtId + " not found"));
+        Long topId = court.getParent() != null ? court.getParent().getId() : court.getId();
+        return courtRepository.findByIdForUpdate(topId)
+                .orElseThrow(() -> new ResourceNotFoundException("Court " + topId + " not found"));
     }
 
     // Re-works out UNAVAILABLE for every slot in the group. A slot is

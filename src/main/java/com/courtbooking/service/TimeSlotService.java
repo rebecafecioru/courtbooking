@@ -43,23 +43,26 @@ public class TimeSlotService {
      * Without this, running the same generation twice would create two slots
      * for the same court at the same time, and two people could each book one:
      * a double booking the locking in BookingService can't see, because it
-     * locks per slot. (Two admins generating for the same court at the same
-     * instant could still race; that's rare enough to leave for now.)
+     * locks per slot.
      * <p>
      * A new slot starts UNAVAILABLE instead of AVAILABLE if a slot on an
      * overlapping space (the full hall, or one of its halves) whose time
      * overlaps it is BOOKED or BLOCKED, the same rule BookingService applies.
-     * Those slots are locked first, in id order like BookingService, so a
-     * booking or cancel already under way finishes before we read them and
-     * one that comes after waits for us. (A booking that worked out which
-     * slots to lock just before ours were inserted won't refresh them; booking
-     * one of them is still refused, it just shows AVAILABLE until the next
-     * change in that hall.)
+     * <p>
+     * Before reading anything, this locks the hall's top-level court row, the
+     * same lock BookingService takes before its slot locks. So a booking,
+     * cancel or block in the hall finishes before we look, and one that starts
+     * after waits until our slots are committed, then sees and refreshes them.
+     * Two generations for the same hall queue up the same way, so the second
+     * sees the first's slots and skips them. The related slots are then
+     * locked too, in id order like BookingService.
      */
     @Transactional
     public List<TimeSlot> generateSlots(CreateSlotsRequest req) {
         Court court = courtRepository.findById(req.courtId())
                 .orElseThrow(() -> new ResourceNotFoundException("Court " + req.courtId() + " not found"));
+        Long hallId = court.getParent() != null ? court.getParent().getId() : court.getId();
+        courtRepository.findByIdForUpdate(hallId);
 
         // Everything the court already has around this date range, to check against
         List<TimeSlot> existing = timeSlotRepository.findByCourtIdAndStartTimeBetween(court.getId(),
