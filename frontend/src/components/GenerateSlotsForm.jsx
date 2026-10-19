@@ -69,7 +69,11 @@ function GenerateSlotsForm({ court, user, onGenerated }) {
                     return
                 }
                 const body = await res.json().catch(() => ({}))
-                setMessage(body.message || 'Could not create the slots. Check the details and try again.')
+                // A 400 lists what's wrong in fieldErrors (e.g. end date before start date)
+                const problems = Object.values(body.fieldErrors || {})
+                setMessage(problems.length > 0
+                    ? problems.join(' ')
+                    : body.message || 'Could not create the slots. Check the details and try again.')
             })
             .catch(() => setMessage('Could not reach the server.'))
             .finally(() => setSaving(false))
