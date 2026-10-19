@@ -6,12 +6,13 @@ import java.time.LocalDateTime;
 /**
  * Represents one bookable window on a court, e.g. Court 1, 18:00-19:00.
  * <p>
- * Concurrency design: this entity carries a @Version column. When two requests
- * race to book the same slot, the second write to commit will fail with an
- * OptimisticLockException because the version it read is stale. The service
- * layer catches that and turns it into a clean 409 Conflict instead of letting
- * both bookings succeed. This is the primary defence; a DB-level unique
- * constraint on Booking.timeSlot is the backup defence (see Booking).
+ * Concurrency design: the primary defence against double booking is the
+ * pessimistic locking in BookingService, which locks the hall and every slot
+ * that could clash before changing any of them. The @Version column here is a
+ * backstop: if a slot were ever changed outside that locked path, the stale
+ * write would fail with an OptimisticLockException, which
+ * GlobalExceptionHandler turns into a 409 Conflict. The unique constraint on
+ * Booking.timeSlot is the last line (see Booking).
  */
 @Entity
 @Table(name = "time_slot", indexes = {
