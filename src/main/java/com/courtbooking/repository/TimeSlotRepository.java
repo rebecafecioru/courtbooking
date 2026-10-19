@@ -36,15 +36,36 @@ public interface TimeSlotRepository extends JpaRepository<TimeSlot, Long> {
     @Query("select t.court.venue.organisation.id from TimeSlot t where t.id = :id")
     Optional<Long> findOrganisationIdById(@Param("id") Long id);
 
-    // Ids of the slots on the given courts covering exactly this time window.
-    @Query("select t.id from TimeSlot t where t.court.id in :courtIds "
-            + "and t.startTime = :start and t.endTime = :end")
-    List<Long> findIdsByCourtsAndTime(@Param("courtIds") Collection<Long> courtIds,
-                                      @Param("start") LocalDateTime start,
-                                      @Param("end") LocalDateTime end);
+    // The earliest start and latest end of a set of slots.
+    interface TimeSpan {
+        LocalDateTime getSpanStart();
+        LocalDateTime getSpanEnd();
+    }
 
-    boolean existsByCourtIdInAndStartTimeAndEndTimeAndStatus(
-            Collection<Long> courtIds, LocalDateTime start, LocalDateTime end, SlotStatus status);
+    // Ids of the slots on the given courts that overlap this time window. Two
+    // time ranges overlap if each starts before the other ends, so 09:00-10:00
+    // and 09:30-11:00 overlap but 09:00-10:00 and 10:00-11:00 don't.
+    @Query("select t.id from TimeSlot t where t.court.id in :courtIds "
+            + "and t.startTime < :end and t.endTime > :start")
+    List<Long> findIdsByCourtsOverlapping(@Param("courtIds") Collection<Long> courtIds,
+                                          @Param("start") LocalDateTime start,
+                                          @Param("end") LocalDateTime end);
+
+    // From the earliest start to the latest end of the slots on the given
+    // courts that overlap this time window (both null if there are none).
+    @Query("select min(t.startTime) as spanStart, max(t.endTime) as spanEnd from TimeSlot t "
+            + "where t.court.id in :courtIds and t.startTime < :end and t.endTime > :start")
+    TimeSpan findSpanOfOverlapping(@Param("courtIds") Collection<Long> courtIds,
+                                   @Param("start") LocalDateTime start,
+                                   @Param("end") LocalDateTime end);
+
+    // Whether any slot on the given courts that overlaps this time window has this status.
+    @Query("select count(t) > 0 from TimeSlot t where t.court.id in :courtIds "
+            + "and t.startTime < :end and t.endTime > :start and t.status = :status")
+    boolean existsOverlapping(@Param("courtIds") Collection<Long> courtIds,
+                              @Param("start") LocalDateTime start,
+                              @Param("end") LocalDateTime end,
+                              @Param("status") SlotStatus status);
 
     // Locks a whole group of slots at once, always in id order, so two
     // bookings that touch the same group can never deadlock each other.

@@ -28,19 +28,31 @@ import java.util.Set;
  * The point of this service is that two people can never end up with the same
  * physical space at the same time. It defends against that in layers:
  * <p>
- * 1. Pessimistic locks - every slot that could clash (the slot itself plus the
- *    same time on any overlapping space) is locked together, in id order, so a
- *    concurrent request has to wait for the first one to finish.
+ * 1. Pessimistic locks - every slot that could clash (the slot itself plus
+ *    every slot on an overlapping space whose time overlaps it) is locked
+ *    together, in id order, so a concurrent request has to wait for the first
+ *    one to finish.
  * 2. Optimistic version check (@Version on TimeSlot) - a backstop if a slot is
  *    ever changed outside this locked path.
  * 3. A unique constraint on booking.time_slot_id - the database itself refuses
  *    two bookings for the same slot.
  * <p>
  * Overlapping spaces: a court can have a parent (Half A and Half B point at the
- * full hall). Booking the full hall marks both halves UNAVAILABLE for that
- * time, and booking a half marks the full hall UNAVAILABLE. Cancelling frees
+ * full hall). Booking the full hall marks both halves UNAVAILABLE while it
+ * runs, and booking a half marks the full hall UNAVAILABLE. Cancelling frees
  * them again, unless another booking still covers them. An admin-BLOCKED slot
  * (e.g. maintenance) covers its overlapping spaces in the same way.
+ * <p>
+ * Slots clash when their times overlap (each starts before the other ends),
+ * not only when they match exactly: the full hall and its halves can have
+ * different timetables (say 60-minute slots on the hall, 90-minute ones on a
+ * half), so a full-hall 09:00-10:00 and a Half A 09:30-11:00 share the floor
+ * from 09:30 to 10:00. Back-to-back slots (09:00-10:00 and 10:00-11:00) don't
+ * clash. Because of this a change can ripple one step further than the slots
+ * it touches: cancelling the full hall 09:00-10:00 can hand Half A 09:30-11:00
+ * to someone waiting, which in turn covers the full hall 10:00-11:00. So the
+ * cancel/block/unblock paths lock the slots overlapping the slot and the slots
+ * overlapping those, all in one id-ordered lock.
  * <p>
  * Blocking: an admin can't block a slot while it, or a space overlapping it,
  * is booked; the booking would be left pointing at a closed space. Unblocking
@@ -119,7 +131,7 @@ public class BookingService {
 
         slot.setStatus(SlotStatus.AVAILABLE);
         refreshOverlaps(group);
-        promoteFromWaitlist(group);
+        promoteFromWaitlist(group, slot);
     }
 
     // Org admin: close a slot, e.g. for maintenance.
@@ -153,7 +165,7 @@ public class BookingService {
 
         slot.setStatus(SlotStatus.AVAILABLE);
         refreshOverlaps(group); // works out AVAILABLE vs UNAVAILABLE for the whole hall
-        promoteFromWaitlist(group);
+        promoteFromWaitlist(group, slot);
     }
 
     @Transactional
@@ -226,10 +238,16 @@ public class BookingService {
         return bookingRepository.save(new Booking(slot, user)); // unique constraint is the final backstop
     }
 
-    // Gives freed slots in the group to the people waiting for them, first in
-    // line first. Called from cancelBooking while the group is still locked.
-    private void promoteFromWaitlist(List<TimeSlot> group) {
-        List<Long> slotIds = group.stream().map(TimeSlot::getId).toList();
+    // Gives the freed slot, and any slot it was covering, to the people waiting
+    // for them, first in line first. Called from cancelBooking and unblockSlot
+    // while the family group is still locked. Only those slots can have just
+    // become free, and the group holds every slot that overlaps them, so each
+    // promotion's own overlaps are locked too.
+    private void promoteFromWaitlist(List<TimeSlot> group, TimeSlot freed) {
+        List<Long> slotIds = group.stream()
+                .filter(t -> t.getId().equals(freed.getId()) || sharesSpace(t, freed))
+                .map(TimeSlot::getId)
+                .toList();
 
         for (WaitlistEntry entry : waitlistEntryRepository.findByTimeSlotIdInOrderByIdAsc(slotIds)) {
             TimeSlot slot = findInGroup(group, entry.getTimeSlot().getId());
@@ -242,8 +260,8 @@ public class BookingService {
         }
     }
 
-    // Free means AVAILABLE and no overlapping space at that time is booked or
-    // closed. Only *overlapping* spaces count: Half B being booked doesn't stop
+    // Free means AVAILABLE and no overlapping space is booked or closed at any
+    // point during the slot. Only *overlapping* spaces count: Half B being booked doesn't stop
     // Half A, so we can't just look at every other slot in the family group.
     private boolean isFreeToBook(TimeSlot slot) {
         return slot.getStatus() == SlotStatus.AVAILABLE
@@ -251,12 +269,25 @@ public class BookingService {
                 && !overlapHasStatus(slot, SlotStatus.BLOCKED);
     }
 
-    // Whether any space overlapping this slot has a slot at the same time with this status.
+    // Whether any space overlapping this slot has a slot with this status whose
+    // time overlaps it.
     private boolean overlapHasStatus(TimeSlot slot, SlotStatus status) {
         List<Long> related = relatedCourtIds(slot.getCourt().getId());
         return !related.isEmpty()
-                && timeSlotRepository.existsByCourtIdInAndStartTimeAndEndTimeAndStatus(
+                && timeSlotRepository.existsOverlapping(
                 related, slot.getStartTime(), slot.getEndTime(), status);
+    }
+
+    // Whether two slots are on overlapping spaces (one court is the other's
+    // parent) and their times overlap.
+    private boolean sharesSpace(TimeSlot a, TimeSlot b) {
+        Court ca = a.getCourt();
+        Court cb = b.getCourt();
+        boolean relatedCourts = (ca.getParent() != null && ca.getParent().getId().equals(cb.getId()))
+                || (cb.getParent() != null && cb.getParent().getId().equals(ca.getId()));
+        return relatedCourts
+                && a.getStartTime().isBefore(b.getEndTime())
+                && a.getEndTime().isAfter(b.getStartTime());
     }
 
     private AppUser findUser(Long userId) {
@@ -264,7 +295,7 @@ public class BookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("User " + userId + " not found"));
     }
 
-    // Locks the slot plus the same time slot on every overlapping court.
+    // Locks the slot plus every slot on an overlapping court whose time overlaps it.
     private List<TimeSlot> lockSlotGroup(Long timeSlotId) {
         TimeSlotRepository.SlotWindow window = timeSlotRepository.findWindowById(timeSlotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Time slot " + timeSlotId + " not found"));
@@ -274,16 +305,22 @@ public class BookingService {
 
         List<Long> relatedCourtIds = relatedCourtIds(window.getCourtId());
         if (!relatedCourtIds.isEmpty()) {
-            ids.addAll(timeSlotRepository.findIdsByCourtsAndTime(
+            ids.addAll(timeSlotRepository.findIdsByCourtsOverlapping(
                     relatedCourtIds, window.getStartTime(), window.getEndTime()));
         }
         return timeSlotRepository.findAllByIdForUpdate(ids);
     }
 
-    // Locks every slot at this time across the whole hall: the top-level court
-    // and all of its sub-courts (e.g. the full hall and both halves). Courts are
-    // only ever one level deep, so the family is the parent plus its children.
-    // Same id ordering as lockSlotGroup, so the two can't deadlock each other.
+    // Locks the slots across the whole hall (the top-level court and all of its
+    // sub-courts, e.g. the full hall and both halves) that overlap this slot,
+    // and also the ones overlapping *those*: a promotion can book a slot that
+    // overlaps this one, and every slot that booking covers must be locked
+    // and refreshed too. To get them, the window is widened to cover every
+    // family slot overlapping this one, and everything in the family
+    // overlapping that wider window is locked (a few more than strictly
+    // needed, which is harmless). Courts are only ever one level deep, so the
+    // family is the parent plus its children. Same id ordering as
+    // lockSlotGroup, so the two can't deadlock each other.
     private List<TimeSlot> lockFamilyGroup(Long timeSlotId) {
         TimeSlotRepository.SlotWindow window = timeSlotRepository.findWindowById(timeSlotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Time slot " + timeSlotId + " not found"));
@@ -296,14 +333,22 @@ public class BookingService {
         familyCourtIds.add(top.getId());
         courtRepository.findByParentId(top.getId()).forEach(c -> familyCourtIds.add(c.getId()));
 
-        Set<Long> ids = new HashSet<>(timeSlotRepository.findIdsByCourtsAndTime(
-                familyCourtIds, window.getStartTime(), window.getEndTime()));
+        // The slot itself is in the family, so the span is only ever empty for
+        // a zero-length slot; fall back to the slot's own window then.
+        TimeSlotRepository.TimeSpan span = timeSlotRepository.findSpanOfOverlapping(
+                familyCourtIds, window.getStartTime(), window.getEndTime());
+        boolean hasSpan = span != null && span.getSpanStart() != null;
+
+        Set<Long> ids = new HashSet<>(timeSlotRepository.findIdsByCourtsOverlapping(familyCourtIds,
+                hasSpan ? span.getSpanStart() : window.getStartTime(),
+                hasSpan ? span.getSpanEnd() : window.getEndTime()));
         ids.add(timeSlotId);
         return timeSlotRepository.findAllByIdForUpdate(ids);
     }
 
     // Re-works out UNAVAILABLE for every slot in the group. A slot is
-    // UNAVAILABLE if an overlapping slot at the same time is BOOKED or BLOCKED.
+    // UNAVAILABLE if a slot on an overlapping space whose time overlaps it is
+    // BOOKED or BLOCKED.
     // BOOKED and admin-BLOCKED slots are left alone.
     private void refreshOverlaps(List<TimeSlot> group) {
         for (TimeSlot t : group) {
