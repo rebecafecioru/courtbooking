@@ -42,7 +42,7 @@ public class AuthController {
         appUserRepository.save(user);
 
         String token = jwtUtil.generateToken(user.getEmail());
-        return ResponseEntity.ok(new AuthResponse(token, user.getEmail(), user.getFullName(), user.getRole().name()));
+        return ResponseEntity.ok(AuthResponse.from(token, user));
     }
 
     @PostMapping("/login")
@@ -52,6 +52,6 @@ public class AuthController {
 
         AppUser user = appUserRepository.findByEmail(request.email()).orElseThrow();
         String token = jwtUtil.generateToken(user.getEmail());
-        return ResponseEntity.ok(new AuthResponse(token, user.getEmail(), user.getFullName(), user.getRole().name()));
+        return ResponseEntity.ok(AuthResponse.from(token, user));
     }
 }
