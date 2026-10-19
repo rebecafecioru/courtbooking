@@ -53,7 +53,9 @@ succeeds and one is rejected as a conflict — not "usually one," every time.
 - **Org admin tools** — venue/court creation, bulk time-slot generation
   (e.g. "every Mon/Wed/Fri, 9am–9pm, 1-hour slots"), and blocking slots for
   maintenance (refused while the space is booked; unblocking hands the slot
-  to the first person on its waitlist)
+  to the first person on its waitlist). Slot generation and closing/reopening
+  slots are in the React frontend's "Manage courts" section; generating never
+  duplicates a slot the court already has
 - **JWT authentication** with role-based access (`PUBLIC_USER`,
   `ORG_ADMIN`, `SUPER_ADMIN`)
 - **Zero-setup local dev** — runs on an in-memory H2 database with seed
@@ -155,7 +157,6 @@ admin (`409`).
 
 ## What's next
 
-- Admin screens in the React frontend
 - Email/SMS booking confirmations (including "you got a slot from the waitlist")
 - Recurring bookings for regular club sessions
 
