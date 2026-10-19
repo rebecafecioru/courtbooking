@@ -21,12 +21,23 @@ booking the same court at the same time.** That's a real race condition, not
 a hypothetical one — it's exactly the kind of bug that causes the "we were
 told this time was free" problem in the first place.
 
+It's harder than it sounds because courts can overlap. A sports hall can be
+booked whole, or as Half A and Half B, so booking the full hall has to rule
+out both halves at that time (and the other way round). The hall and its
+halves can also have different slot lengths, say 60 minutes on the hall and
+90 on a half, so slots clash whenever their times overlap, not just when they
+match exactly.
+
 `BookingService` defends against it with three independent layers:
 
-1. **Pessimistic row lock** — when a booking request comes in, the service
-   reads the target `TimeSlot` with `SELECT ... FOR UPDATE`. A second,
-   concurrent request for the same slot has to wait for the first
-   transaction to finish before it can even read the row.
+1. **Pessimistic locks** — every request first locks the hall's top-level
+   court row, then every slot that could clash with the one it's touching
+   (the slot itself plus every overlapping slot on the hall or its halves),
+   all with `SELECT ... FOR UPDATE` and always in id order so two requests
+   can't deadlock. A concurrent request for any of those slots has to wait
+   for the first transaction to finish. The court lock is there for slots
+   that don't exist yet: slot generation takes it too, so a booking never
+   decides what to lock while new slots are being added to the hall.
 2. **Optimistic version check** — `TimeSlot` carries a `@Version` column as
    a backup. If the row were ever updated outside the locked path, the
    stale write would fail with an `ObjectOptimisticLockingFailureException`
@@ -35,17 +46,24 @@ told this time was free" problem in the first place.
    Even if both of the above were somehow bypassed, Postgres itself
    physically cannot store two `Booking` rows for the same slot.
 
-This is proven with a real concurrency test
-(`BookingServiceConcurrencyTest`) that fires two booking requests at the
-same slot from two threads at the same instant and asserts that exactly one
-succeeds and one is rejected as a conflict — not "usually one," every time.
+This is proven with real concurrency tests. `BookingServiceConcurrencyTest`
+fires two booking requests at the same slot from two threads at the same
+instant and asserts that exactly one succeeds and one is rejected as a
+conflict — not "usually one," every time. The others race the full hall
+against a half (`FullHallVersusHalfConcurrencyTest`,
+`MisalignedSlotsConcurrencyTest`), cancels against the waitlist
+(`WaitlistConcurrencyTest`), blocking against booking
+(`SlotBlockingConcurrencyTest`) and slot generation against booking
+(`SlotGenerationConcurrencyTest`).
 
 ## Features
 
 - **Public browsing** — anyone can view organisations, venues, courts, and
   live availability without an account
 - **Booking & cancellation** — logged-in users book a slot and can cancel
-  their own bookings
+  their own bookings, up until the slot starts
+- **Overlapping spaces** — a hall can be split into halves; booking or
+  closing one makes the overlapping slots on the others unavailable
 - **Waitlist** — queue for a taken slot; when it's cancelled, the first
   person in line is booked into it automatically, inside the cancel's own
   locked transaction, so nobody can grab it in between (see
@@ -131,7 +149,7 @@ you don't run it, it's the part of this project I'm most proud of.
 | GET    | `/api/organisations`                   | Public          | List organisations                    |
 | GET    | `/api/venues?organisationId=`          | Public          | List venues                           |
 | GET    | `/api/courts?venueId=`                 | Public          | List courts                           |
-| GET    | `/api/courts/{id}/slots?from=&to=`     | Public          | Check availability                    |
+| GET    | `/api/courts/{id}/slots?from=&to=`     | Public          | Check availability (up to 31 days)    |
 | POST   | `/api/bookings`                        | Authenticated   | Book a slot                           |
 | GET    | `/api/bookings/me`                     | Authenticated   | Your bookings                         |
 | DELETE | `/api/bookings/{id}`                   | Authenticated   | Cancel your own booking               |

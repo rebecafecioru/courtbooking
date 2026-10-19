@@ -3,6 +3,7 @@ package com.courtbooking.controller;
 import com.courtbooking.config.AppUserPrincipal;
 import com.courtbooking.dto.CreateSlotsRequest;
 import com.courtbooking.dto.TimeSlotResponse;
+import com.courtbooking.exception.BadRequestException;
 import com.courtbooking.model.TimeSlot;
 import com.courtbooking.service.BookingService;
 import com.courtbooking.service.OrgAccessService;
@@ -19,6 +20,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 public class TimeSlotController {
+
+    // The longest range the public slots endpoint will return in one go. It's
+    // open to anyone, so without a cap one request could ask for every slot
+    // a court has ever had.
+    static final int MAX_BROWSE_DAYS = 31;
 
     private final TimeSlotService timeSlotService;
     private final BookingService bookingService;
@@ -38,6 +44,12 @@ public class TimeSlotController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(defaultValue = "true") boolean availableOnly) {
+        if (!to.isAfter(from)) {
+            throw new BadRequestException("'to' must be after 'from'.");
+        }
+        if (to.isAfter(from.plusDays(MAX_BROWSE_DAYS))) {
+            throw new BadRequestException("You can look at most " + MAX_BROWSE_DAYS + " days of slots at once.");
+        }
         List<TimeSlot> slots = availableOnly
                 ? timeSlotService.getAvailableSlots(courtId, from, to)
                 : timeSlotService.getAllSlots(courtId, from, to);
