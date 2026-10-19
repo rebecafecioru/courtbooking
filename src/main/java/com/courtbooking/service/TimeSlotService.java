@@ -39,6 +39,9 @@ public class TimeSlotService {
      * chopped into fixed-duration chunks. Used by org admins instead of them
      * having to create every single slot by hand.
      * <p>
+     * Slots that would start in the past (e.g. this morning's, when generating
+     * from today) aren't created.
+     * <p>
      * Any new slot that would overlap a slot the court already has is skipped.
      * Without this, running the same generation twice would create two slots
      * for the same court at the same time, and two people could each book one:
@@ -74,6 +77,7 @@ public class TimeSlotService {
                 .filter(t -> t.getStatus() == SlotStatus.BOOKED || t.getStatus() == SlotStatus.BLOCKED)
                 .toList();
 
+        LocalDateTime now = LocalDateTime.now();
         List<TimeSlot> created = new ArrayList<>();
         var date = req.fromDate();
         while (!date.isAfter(req.toDate())) {
@@ -82,7 +86,7 @@ public class TimeSlotService {
                 var dayEnd = date.atTime(req.dailyEndTime());
                 while (slotStart.plusMinutes(req.slotDurationMinutes()).compareTo(dayEnd) <= 0) {
                     var slotEnd = slotStart.plusMinutes(req.slotDurationMinutes());
-                    if (!overlapsAny(existing, slotStart, slotEnd)) {
+                    if (slotStart.isAfter(now) && !overlapsAny(existing, slotStart, slotEnd)) {
                         TimeSlot slot = new TimeSlot(court, slotStart, slotEnd);
                         if (overlapsAny(taken, slotStart, slotEnd)) {
                             slot.setStatus(SlotStatus.UNAVAILABLE);

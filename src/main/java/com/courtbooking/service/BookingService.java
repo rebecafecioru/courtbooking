@@ -17,6 +17,7 @@ import com.courtbooking.repository.WaitlistEntryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -62,6 +63,11 @@ import java.util.Set;
  * is booked; the booking would be left pointing at a closed space. Unblocking
  * frees the slot and gives it to the first person on its waitlist.
  * <p>
+ * Time: a slot that has already started can't be booked, cancelled,
+ * waitlisted or handed out from its waitlist. Cancelling after the session
+ * would otherwise free a slot nobody can use, and give it to the next person
+ * in line after the fact.
+ * <p>
  * Waitlist: users can queue for a taken slot. When a cancel frees a slot, the
  * first person in line is booked into it automatically, inside the cancel's
  * transaction while the slots are still locked, so nobody can grab it in
@@ -94,6 +100,9 @@ public class BookingService {
         List<TimeSlot> group = lockSlotGroup(timeSlotId);
         TimeSlot slot = findInGroup(group, timeSlotId);
 
+        if (hasStarted(slot)) {
+            throw new SlotNotAvailableException("This slot has already started.");
+        }
         if (slot.getStatus() != SlotStatus.AVAILABLE) {
             throw new SlotNotAvailableException(
                     "This slot is no longer available (status: " + slot.getStatus() + ").");
@@ -126,6 +135,10 @@ public class BookingService {
         // cancelled), and every slot that changes needs to be locked and refreshed.
         List<TimeSlot> group = lockFamilyGroup(slotId);
         TimeSlot slot = findInGroup(group, slotId);
+
+        if (hasStarted(slot)) {
+            throw new SlotNotAvailableException("This booking has already started, so it can't be cancelled.");
+        }
 
         // Deleted rather than soft-marked CANCELLED, because the unique
         // constraint allows only one booking row per slot. flush() makes the
@@ -179,6 +192,9 @@ public class BookingService {
         List<TimeSlot> group = lockFamilyGroup(timeSlotId);
         TimeSlot slot = findInGroup(group, timeSlotId);
 
+        if (hasStarted(slot)) {
+            throw new WaitlistException("This slot has already started.");
+        }
         if (slot.getStatus() == SlotStatus.BLOCKED) {
             throw new WaitlistException("This slot is closed, so there is no waitlist for it.");
         }
@@ -256,8 +272,10 @@ public class BookingService {
         for (WaitlistEntry entry : waitlistEntryRepository.findByTimeSlotIdInOrderByIdAsc(slotIds)) {
             TimeSlot slot = findInGroup(group, entry.getTimeSlot().getId());
             // Checked again for every entry: promoting an earlier one (e.g. to
-            // the full hall) may have made this slot UNAVAILABLE.
-            if (isFreeToBook(slot)) {
+            // the full hall) may have made this slot UNAVAILABLE. A slot that
+            // has started (e.g. an admin reopening one mid-session) isn't
+            // handed out.
+            if (!hasStarted(slot) && isFreeToBook(slot)) {
                 waitlistEntryRepository.delete(entry);
                 confirmBooking(group, slot, entry.getUser());
             }
@@ -271,6 +289,10 @@ public class BookingService {
         return slot.getStatus() == SlotStatus.AVAILABLE
                 && !overlapHasStatus(slot, SlotStatus.BOOKED)
                 && !overlapHasStatus(slot, SlotStatus.BLOCKED);
+    }
+
+    private boolean hasStarted(TimeSlot slot) {
+        return !slot.getStartTime().isAfter(LocalDateTime.now());
     }
 
     // Whether any space overlapping this slot has a slot with this status whose

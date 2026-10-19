@@ -54,9 +54,10 @@ function MyBookings({ user, bookingsVersion, onBookingsChanged }) {
         return <p>Loading your bookings...</p>
     }
 
-    // The backend returns past bookings too; only upcoming ones can be cancelled.
+    // The backend returns past bookings too; only ones that haven't started yet
+    // can be cancelled.
     const now = new Date()
-    const upcoming = bookings.filter(b => new Date(b.endTime) > now)
+    const upcoming = bookings.filter(b => new Date(b.startTime) > now)
 
     return (
         <div>
