@@ -49,4 +49,17 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isConflict());
     }
+
+    @Test
+    void loginTellsAnOrgAdminWhichOrganisationTheyManage() throws Exception {
+        // The demo org admin from DevDataSeeder
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "admin@leicester-demo.ac.uk", "password": "password123"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("ORG_ADMIN"))
+                .andExpect(jsonPath("$.organisationId").isNumber());
+    }
 }

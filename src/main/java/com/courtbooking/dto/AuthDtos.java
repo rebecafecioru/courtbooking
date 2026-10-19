@@ -1,5 +1,6 @@
 package com.courtbooking.dto;
 
+import com.courtbooking.model.AppUser;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
@@ -18,6 +19,12 @@ public class AuthDtos {
     public record LoginRequest(@Email @NotBlank String email, @NotBlank String password) {
     }
 
-    public record AuthResponse(String token, String email, String fullName, String role) {
+    // organisationId is the organisation an ORG_ADMIN manages, so the frontend
+    // knows which courts to show them; null for everyone else.
+    public record AuthResponse(String token, String email, String fullName, String role, Long organisationId) {
+        public static AuthResponse from(String token, AppUser user) {
+            return new AuthResponse(token, user.getEmail(), user.getFullName(), user.getRole().name(),
+                    user.getOrganisation() != null ? user.getOrganisation().getId() : null);
+        }
     }
 }

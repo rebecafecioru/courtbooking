@@ -38,11 +38,22 @@ public class TimeSlotService {
      * Bulk-generates slots for a court over a date range, on the given weekdays,
      * chopped into fixed-duration chunks. Used by org admins instead of them
      * having to create every single slot by hand.
+     * <p>
+     * Any new slot that would overlap a slot the court already has is skipped.
+     * Without this, running the same generation twice would create two slots
+     * for the same court at the same time, and two people could each book one:
+     * a double booking the locking in BookingService can't see, because it
+     * locks per slot. (Two admins generating for the same court at the same
+     * instant could still race; that's rare enough to leave for now.)
      */
     @Transactional
     public List<TimeSlot> generateSlots(CreateSlotsRequest req) {
         Court court = courtRepository.findById(req.courtId())
                 .orElseThrow(() -> new ResourceNotFoundException("Court " + req.courtId() + " not found"));
+
+        // Everything the court already has around this date range, to check against
+        List<TimeSlot> existing = timeSlotRepository.findByCourtIdAndStartTimeBetween(court.getId(),
+                req.fromDate().minusDays(1).atStartOfDay(), req.toDate().plusDays(1).atStartOfDay());
 
         List<TimeSlot> created = new ArrayList<>();
         var date = req.fromDate();
@@ -52,13 +63,20 @@ public class TimeSlotService {
                 var dayEnd = date.atTime(req.dailyEndTime());
                 while (slotStart.plusMinutes(req.slotDurationMinutes()).compareTo(dayEnd) <= 0) {
                     var slotEnd = slotStart.plusMinutes(req.slotDurationMinutes());
-                    created.add(new TimeSlot(court, slotStart, slotEnd));
+                    if (!overlapsAny(existing, slotStart, slotEnd)) {
+                        created.add(new TimeSlot(court, slotStart, slotEnd));
+                    }
                     slotStart = slotEnd;
                 }
             }
             date = date.plusDays(1);
         }
         return timeSlotRepository.saveAll(created);
+    }
+
+    // Two time ranges overlap if each starts before the other ends.
+    private boolean overlapsAny(List<TimeSlot> slots, LocalDateTime start, LocalDateTime end) {
+        return slots.stream().anyMatch(s -> s.getStartTime().isBefore(end) && s.getEndTime().isAfter(start));
     }
 
     // Blocking and unblocking live in BookingService: they need the same locks
