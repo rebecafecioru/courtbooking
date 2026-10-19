@@ -88,4 +88,37 @@ class TimeSlotServiceTest {
         assertEquals(List.of(day.atTime(9, 0), day.atTime(11, 0)),
                 created.stream().map(TimeSlot::getStartTime).toList());
     }
+
+    @Test
+    void halfSlotsUnderABookedFullHallStartUnavailable() {
+        Court half = courtRepository.save(new Court("Half A", "Volleyball", 6, court.getVenue(), court));
+        TimeSlot hall = new TimeSlot(court, day.atTime(9, 0), day.atTime(10, 0));
+        hall.setStatus(SlotStatus.BOOKED);
+        timeSlotRepository.save(hall);
+
+        // 90-minute half slots: 09:00-10:30 overlaps the booked hour, 10:30-12:00 doesn't
+        List<TimeSlot> created = timeSlotService.generateSlots(new CreateSlotsRequest(half.getId(), day, day,
+                EnumSet.allOf(DayOfWeek.class), LocalTime.of(9, 0), LocalTime.of(12, 0), 90));
+
+        assertEquals(List.of(SlotStatus.UNAVAILABLE, SlotStatus.AVAILABLE),
+                created.stream().map(TimeSlot::getStatus).toList());
+    }
+
+    @Test
+    void fullHallSlotsOverABookedOrBlockedHalfStartUnavailable() {
+        Court halfA = courtRepository.save(new Court("Half A", "Volleyball", 6, court.getVenue(), court));
+        Court halfB = courtRepository.save(new Court("Half B", "Volleyball", 6, court.getVenue(), court));
+        TimeSlot booked = new TimeSlot(halfA, day.atTime(9, 30), day.atTime(10, 0));
+        booked.setStatus(SlotStatus.BOOKED);
+        TimeSlot blocked = new TimeSlot(halfB, day.atTime(11, 0), day.atTime(11, 30));
+        blocked.setStatus(SlotStatus.BLOCKED);
+        // AVAILABLE and back-to-back slots don't make anything unavailable
+        TimeSlot free = new TimeSlot(halfA, day.atTime(10, 0), day.atTime(11, 0));
+        timeSlotRepository.saveAll(List.of(booked, blocked, free));
+
+        List<TimeSlot> created = timeSlotService.generateSlots(nineToTwelve(60));
+
+        assertEquals(List.of(SlotStatus.UNAVAILABLE, SlotStatus.AVAILABLE, SlotStatus.UNAVAILABLE),
+                created.stream().map(TimeSlot::getStatus).toList());
+    }
 }
