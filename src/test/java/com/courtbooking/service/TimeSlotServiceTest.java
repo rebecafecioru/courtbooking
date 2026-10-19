@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.EnumSet;
 import java.util.List;
@@ -120,5 +121,18 @@ class TimeSlotServiceTest {
 
         assertEquals(List.of(SlotStatus.UNAVAILABLE, SlotStatus.AVAILABLE, SlotStatus.UNAVAILABLE),
                 created.stream().map(TimeSlot::getStatus).toList());
+    }
+
+    @Test
+    void slotsThatWouldStartInThePastAreNotCreated() {
+        LocalDate today = LocalDate.now();
+        List<TimeSlot> created = timeSlotService.generateSlots(new CreateSlotsRequest(court.getId(),
+                today.minusDays(1), today.plusDays(1), EnumSet.allOf(DayOfWeek.class),
+                LocalTime.of(0, 0), LocalTime.of(23, 0), 60));
+
+        LocalDateTime now = LocalDateTime.now();
+        assertFalse(created.isEmpty(), "tomorrow's slots are still created");
+        assertTrue(created.stream().allMatch(t -> t.getStartTime().isAfter(now.minusSeconds(5))),
+                "nothing from yesterday or earlier today");
     }
 }
