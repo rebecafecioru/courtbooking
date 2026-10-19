@@ -4,19 +4,20 @@ import LoginForm from './components/LoginForm'
 import RegisterForm from './components/RegisterForm'
 import MyBookings from './components/MyBookings'
 import MyWaitlist from './components/MyWaitlist'
+import AdminPanel from './components/AdminPanel'
 import { loadSavedUser, saveUser, clearSavedUser } from './savedUser'
 
 function App() {
     const [organisations, setOrganisations] = useState([])
     const [selectedOrganisation, setSelectedOrganisation] = useState(null)
-    // null when logged out, otherwise { token, email, fullName, role }.
+    // null when logged out, otherwise { token, email, fullName, role, organisationId }.
     // Starts from localStorage, so a refresh keeps you logged in.
     const [user, setUser] = useState(loadSavedUser)
     // Logged out: show the log in form, or the register form instead
     const [showRegister, setShowRegister] = useState(false)
-    // Goes up by 1 whenever a booking or waitlist place is added or removed, so
-    // My Bookings, My Waitlist and the slot list all know to reload. (A cancel
-    // can turn someone's waitlist place into a booking.)
+    // Goes up by 1 whenever bookings, waitlists or slots change, so My Bookings,
+    // My Waitlist and the slot lists all know to reload. (A cancel or an admin
+    // reopening a slot can turn someone's waitlist place into a booking.)
     const [bookingsVersion, setBookingsVersion] = useState(0)
     const onBookingsChanged = () => setBookingsVersion(v => v + 1)
 
@@ -30,6 +31,12 @@ function App() {
         setUser(null)
         setShowRegister(false) // back to the log in form, not whichever was last open
     }
+
+    // Which organisation the admin panel manages: an org admin's own one, or
+    // for a super admin, whichever organisation is selected in the list below
+    const adminOrganisation = user?.role === 'ORG_ADMIN'
+        ? organisations.find(org => org.id === user.organisationId)
+        : user?.role === 'SUPER_ADMIN' ? selectedOrganisation : null
 
     useEffect(() => {
         fetch('http://localhost:8080/api/organisations')
@@ -77,6 +84,19 @@ function App() {
                         onBookingsChanged={onBookingsChanged}
                     />
                 </>
+            )}
+
+            {user?.role === 'SUPER_ADMIN' && !adminOrganisation && (
+                <p>Choose an organisation below to manage its courts.</p>
+            )}
+            {adminOrganisation && (
+                <AdminPanel
+                    key={adminOrganisation.id}
+                    user={user}
+                    organisation={adminOrganisation}
+                    bookingsVersion={bookingsVersion}
+                    onBookingsChanged={onBookingsChanged}
+                />
             )}
 
             <h2>Organisations</h2>
