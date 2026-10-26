@@ -1,5 +1,6 @@
 package com.courtbooking.service;
 
+import com.courtbooking.email.EmailMessage;
 import com.courtbooking.exception.BadRequestException;
 import com.courtbooking.exception.ResourceNotFoundException;
 import com.courtbooking.exception.SlotNotAvailableException;
@@ -17,6 +18,7 @@ import com.courtbooking.repository.BookingSeriesRepository;
 import com.courtbooking.repository.CourtRepository;
 import com.courtbooking.repository.TimeSlotRepository;
 import com.courtbooking.repository.WaitlistEntryRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -100,6 +102,8 @@ public class BookingService {
     private final WaitlistEntryRepository waitlistEntryRepository;
     private final BookingSeriesRepository bookingSeriesRepository;
     private final NotificationService notificationService;
+    // Emails are published as events; EmailListener sends them after commit
+    private final ApplicationEventPublisher events;
 
     // A term's worth of weekly sessions
     public static final int MAX_SERIES_WEEKS = 12;
@@ -113,7 +117,8 @@ public class BookingService {
                           CourtRepository courtRepository,
                           WaitlistEntryRepository waitlistEntryRepository,
                           BookingSeriesRepository bookingSeriesRepository,
-                          NotificationService notificationService) {
+                          NotificationService notificationService,
+                          ApplicationEventPublisher events) {
         this.timeSlotRepository = timeSlotRepository;
         this.bookingRepository = bookingRepository;
         this.appUserRepository = appUserRepository;
@@ -121,6 +126,7 @@ public class BookingService {
         this.waitlistEntryRepository = waitlistEntryRepository;
         this.bookingSeriesRepository = bookingSeriesRepository;
         this.notificationService = notificationService;
+        this.events = events;
     }
 
     @Transactional
@@ -145,7 +151,11 @@ public class BookingService {
             throw new SlotNotAvailableException("Part of this space is already booked or closed at that time.");
         }
 
-        return confirmBooking(group, slot, findUser(userId), null);
+        AppUser user = findUser(userId);
+        Booking booking = confirmBooking(group, slot, user, null);
+        email(user, "Booking confirmed: " + slot.getCourt().getName(),
+                "You're booked into " + describe(slot) + ".");
+        return booking;
     }
 
     @Transactional
@@ -157,9 +167,12 @@ public class BookingService {
             throw new SlotNotAvailableException("You can only cancel your own bookings.");
         }
 
-        if (!cancelIfNotStarted(booking)) {
+        TimeSlot cancelled = cancelIfNotStarted(booking);
+        if (cancelled == null) {
             throw new SlotNotAvailableException("This booking has already started, so it can't be cancelled.");
         }
+        email(booking.getBookedBy(), "Booking cancelled: " + cancelled.getCourt().getName(),
+                "Your booking for " + describe(cancelled) + " has been cancelled.");
     }
 
     // What booking this slot every week would look like. Takes no locks and
@@ -220,6 +233,10 @@ public class BookingService {
         for (TimeSlot slot : slots) {
             bookings.add(confirmBooking(group, slot, user, series));
         }
+        email(user, "Weekly booking confirmed: " + slots.get(0).getCourt().getName(),
+                "You're booked into " + slots.get(0).getCourt().getName() + " at "
+                        + slots.get(0).getCourt().getVenue().getName() + " for " + slots.size() + " weeks:\n"
+                        + listDates(slots));
         return bookings;
     }
 
@@ -233,18 +250,23 @@ public class BookingService {
             throw new SlotNotAvailableException("You can only cancel your own bookings.");
         }
 
-        int cancelled = 0;
+        List<TimeSlot> cancelled = new ArrayList<>();
         for (Booking booking : bookingRepository.findBySeriesIdOrderById(seriesId)) {
-            if (cancelIfNotStarted(booking)) {
-                cancelled++;
+            TimeSlot slot = cancelIfNotStarted(booking);
+            if (slot != null) {
+                cancelled.add(slot);
             }
         }
-        return cancelled;
+        if (!cancelled.isEmpty()) {
+            email(series.getBookedBy(), "Weekly booking cancelled: " + cancelled.get(0).getCourt().getName(),
+                    "These weeks have been cancelled:\n" + listDates(cancelled));
+        }
+        return cancelled.size();
     }
 
     // Cancels the booking and hands the slot to its waitlist, unless the slot
-    // has already started (then it does nothing and returns false).
-    private boolean cancelIfNotStarted(Booking booking) {
+    // has already started. Returns the freed slot, or null if it had started.
+    private TimeSlot cancelIfNotStarted(Booking booking) {
         Long slotId = booking.getTimeSlot().getId(); // just the id: the slot itself is read under the lock
         // The whole hall, not just this slot's group: a promotion can hand out
         // a different slot in the family (e.g. the full hall after a half is
@@ -253,7 +275,7 @@ public class BookingService {
         TimeSlot slot = findInGroup(group, slotId);
 
         if (hasStarted(slot)) {
-            return false;
+            return null;
         }
 
         // Deleted rather than soft-marked CANCELLED, because the unique
@@ -265,7 +287,7 @@ public class BookingService {
         slot.setStatus(SlotStatus.AVAILABLE);
         refreshOverlaps(group);
         promoteFromWaitlist(group, slot);
-        return true;
+        return slot;
     }
 
     private SeriesWeek.Status weekStatus(TimeSlot slot) {
@@ -441,6 +463,10 @@ public class BookingService {
                         + slot.getCourt().getName() + " at " + slot.getCourt().getVenue().getName() + ", "
                         + slot.getStartTime().format(WEEK_FORMAT) + " at " + slot.getStartTime().format(TIME_FORMAT)
                         + ". It's in My bookings.");
+                email(entry.getUser(), "A place opened up: " + slot.getCourt().getName(),
+                        "Good news: a place opened up and you've been booked into " + describe(slot)
+                                + " from the waitlist. If you can't make it, cancel it in the app so the"
+                                + " next person can have it.");
             }
         }
     }
@@ -477,6 +503,26 @@ public class BookingService {
         return relatedCourts
                 && a.getStartTime().isBefore(b.getEndTime())
                 && a.getEndTime().isAfter(b.getStartTime());
+    }
+
+    // Publishes an email to send once this transaction commits (see EmailListener)
+    private void email(AppUser user, String subject, String text) {
+        events.publishEvent(new EmailMessage(user.getEmail(), subject,
+                "Hi " + user.getFullName() + ",\n\n" + text + "\n\nCourt Booking"));
+    }
+
+    // e.g. "Sports Hall - Half A at Danielle Brown Sports Centre, Tue 27 Oct 19:00-20:00"
+    private String describe(TimeSlot slot) {
+        return slot.getCourt().getName() + " at " + slot.getCourt().getVenue().getName() + ", "
+                + slot.getStartTime().format(WEEK_FORMAT) + " "
+                + slot.getStartTime().format(TIME_FORMAT) + "-" + slot.getEndTime().format(TIME_FORMAT);
+    }
+
+    private String listDates(List<TimeSlot> slots) {
+        return slots.stream()
+                .map(s -> "  " + s.getStartTime().format(WEEK_FORMAT) + " " + s.getStartTime().format(TIME_FORMAT)
+                        + "-" + s.getEndTime().format(TIME_FORMAT))
+                .collect(Collectors.joining("\n"));
     }
 
     private AppUser findUser(Long userId) {

@@ -70,6 +70,11 @@ against a half (`FullHallVersusHalfConcurrencyTest`,
   notification (a bell in the header, checked every 30 seconds). It's saved
   in the same transaction as the booking, so it exists exactly when the
   booking does
+- **Email** — confirmations for bookings, weekly bookings and cancellations,
+  and a "you got a slot" email from the waitlist. Sent only after the
+  booking's transaction commits (so a refused booking never emails), on a
+  background thread (so a slow mail server can't hold up a booking). With no
+  mail server configured they're written to the log instead
 - **Weekly bookings** — book the same slot for up to 12 weeks in one go
   (e.g. a club's Tuesday session). A preview shows which weeks are free
   first, and booking is all or nothing: if any chosen week is taken in the
@@ -177,6 +182,7 @@ Other settings, all optional:
 | `PORT` | Port the site is served on (default 3000) |
 | `CORS_ALLOWED_ORIGINS` | Only if the frontend is hosted on a different address from the backend, e.g. `https://courts.example.com` |
 | `VITE_API_URL` | Build argument for the frontend image, for the same case: the backend's address |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` | Send real email through any SMTP provider. Without `SMTP_HOST`, emails only go to the backend's log |
 
 The backend trusts `X-Forwarded-*` headers from the proxy in front of it, so
 it also works behind a hosting platform's HTTPS proxy.
@@ -231,7 +237,8 @@ admin (`409`).
 
 ## What's next
 
-- Email confirmations, on top of the in-app notifications
+- Reminder emails the day before a booking
+- Letting users choose which emails they get
 
 ## Data model
 
