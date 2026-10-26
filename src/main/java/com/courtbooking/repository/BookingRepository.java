@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,6 +13,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByBookedById(Long userId);
     Optional<Booking> findByTimeSlotId(Long timeSlotId);
     List<Booking> findBySeriesIdOrderById(Long seriesId);
+
+    // Which of these slots this user has booked
+    @Query("select b.timeSlot.id from Booking b where b.bookedBy.id = :userId and b.timeSlot.id in :slotIds")
+    List<Long> findSlotIdsBookedBy(@Param("userId") Long userId, @Param("slotIds") Collection<Long> slotIds);
 
     // Fetches the slot, court and venue in the same query, so building a
     // BookingResponse for each row doesn't trigger extra lazy-loading queries.

@@ -476,3 +476,52 @@ input[type='number'] {
   width: 100%;
   justify-self: center;
 }
+
+/* ---------- Notifications ---------- */
+
+.notif-wrap {
+  position: relative;
+}
+
+.count-badge {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.4em;
+  text-align: center;
+}
+
+.notif-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  max-height: 420px;
+  overflow-y: auto;
+  z-index: 10;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.16);
+  padding: 12px;
+  color: var(--text);
+}
+
+.notif {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--border);
+}
+
+.notif-unread {
+  border-left: 3px solid var(--primary);
+  background: var(--primary-soft);
+}

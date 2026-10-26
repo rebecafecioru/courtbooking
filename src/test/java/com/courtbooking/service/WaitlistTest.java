@@ -27,6 +27,7 @@ class WaitlistTest {
     @Autowired private AppUserRepository appUserRepository;
     @Autowired private BookingRepository bookingRepository;
     @Autowired private WaitlistEntryRepository waitlistEntryRepository;
+    @Autowired private NotificationService notificationService;
     @Autowired private PasswordEncoder passwordEncoder;
 
     // A full hall split into two halves, all with a slot at the same time
@@ -175,5 +176,29 @@ class WaitlistTest {
         assertEquals(userB, bookedBy(halfASlot));
         assertEquals(userC, bookedBy(halfBSlot));
         assertEquals(SlotStatus.UNAVAILABLE, statusOf(fullSlot));
+    }
+
+    @Test
+    void beingGivenASlotFromTheWaitlistSendsANotification() {
+        Booking booking = bookingService.bookSlot(halfASlot.getId(), userA);
+        bookingService.joinWaitlist(halfASlot.getId(), userB);
+
+        bookingService.cancelBooking(booking.getId(), userA);
+
+        assertEquals(1, notificationService.unreadCount(userB));
+        assertTrue(notificationService.getRecent(userB).get(0).getMessage().contains("Hall - Half A"));
+        assertEquals(0, notificationService.unreadCount(userA), "the person who cancelled isn't notified");
+    }
+
+    @Test
+    void noNotificationWhenNobodyIsPromoted() {
+        Booking booking = bookingService.bookSlot(halfASlot.getId(), userA);
+        WaitlistEntry b = bookingService.joinWaitlist(fullSlot.getId(), userB);
+        halfBSlot.setStatus(SlotStatus.BLOCKED); // the full hall stays unavailable
+
+        bookingService.cancelBooking(booking.getId(), userA);
+
+        assertTrue(waitlistEntryRepository.existsById(b.getId()));
+        assertEquals(0, notificationService.unreadCount(userB));
     }
 }

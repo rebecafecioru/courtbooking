@@ -14,6 +14,10 @@ public interface WaitlistEntryRepository extends JpaRepository<WaitlistEntry, Lo
 
     boolean existsByTimeSlotIdAndUserId(Long timeSlotId, Long userId);
 
+    // Which of these slots this user is queueing for
+    @Query("select w.timeSlot.id from WaitlistEntry w where w.user.id = :userId and w.timeSlot.id in :slotIds")
+    List<Long> findSlotIdsWaitedForBy(@Param("userId") Long userId, @Param("slotIds") Collection<Long> slotIds);
+
     // Everyone queueing for any of these slots, first in line first.
     List<WaitlistEntry> findByTimeSlotIdInOrderByIdAsc(Collection<Long> timeSlotIds);
 
