@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
@@ -43,7 +44,8 @@ public class TimeSlotController {
             @PathVariable Long courtId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(defaultValue = "true") boolean availableOnly) {
+            @RequestParam(defaultValue = "true") boolean availableOnly,
+            @AuthenticationPrincipal AppUserPrincipal viewer) { // null when not logged in
         if (!to.isAfter(from)) {
             throw new BadRequestException("'to' must be after 'from'.");
         }
@@ -53,7 +55,17 @@ public class TimeSlotController {
         List<TimeSlot> slots = availableOnly
                 ? timeSlotService.getAvailableSlots(courtId, from, to)
                 : timeSlotService.getAllSlots(courtId, from, to);
-        return slots.stream().map(TimeSlotResponse::from).toList();
+        if (viewer == null) {
+            return slots.stream().map(TimeSlotResponse::from).toList();
+        }
+        // Mark the viewer's own bookings and waitlist places, so the app can
+        // show "Yours" instead of offering to join the waitlist for them
+        List<Long> ids = slots.stream().map(TimeSlot::getId).toList();
+        Set<Long> booked = bookingService.slotIdsBookedBy(viewer.getId(), ids);
+        Set<Long> waiting = bookingService.slotIdsWaitedForBy(viewer.getId(), ids);
+        return slots.stream()
+                .map(t -> TimeSlotResponse.from(t, booked.contains(t.getId()), waiting.contains(t.getId())))
+                .toList();
     }
 
     // Org admin: bulk-generate slots for one of their own courts

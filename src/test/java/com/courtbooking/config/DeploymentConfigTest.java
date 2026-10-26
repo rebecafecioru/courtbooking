@@ -18,9 +18,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DeploymentConfigTest {
 
     @Nested
+    // Its own in-memory database: the tests otherwise share one, and starting
+    // this context (create-drop, no demo data) would wipe the demo data the
+    // other test classes rely on
     @SpringBootTest(properties = {
             "app.cors.allowed-origins=https://courts.example.com, https://www.courts.example.com",
-            "app.seed-demo-data=false"})
+            "app.seed-demo-data=false",
+            "spring.datasource.url=jdbc:h2:mem:deployment-config-test;DB_CLOSE_DELAY=-1"})
     @AutoConfigureMockMvc
     class LikeAProductionDeployment {
 

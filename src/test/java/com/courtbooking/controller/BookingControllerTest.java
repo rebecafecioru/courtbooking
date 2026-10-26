@@ -108,4 +108,25 @@ class BookingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cancelledWeeks").value(2));
     }
+
+    @Test
+    void slotListMarksTheViewersOwnBookingWhenLoggedIn() throws Exception {
+        bookingService.bookSlot(slotId, userId);
+        Long courtId = timeSlotRepository.findById(slotId).orElseThrow().getCourt().getId();
+        String from = LocalDateTime.now().withNano(0).toString();
+        String to = LocalDateTime.now().plusDays(14).withNano(0).toString();
+
+        mockMvc.perform(get("/api/courts/{id}/slots", courtId)
+                        .param("from", from).param("to", to).param("availableOnly", "false")
+                        .header("Authorization", "Bearer " + jwtUtil.generateToken("me@test.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + slotId + ")].yours").value(true))
+                .andExpect(jsonPath("$[?(@.id == " + nextWeekSlotId + ")].yours").value(false));
+
+        // Not logged in: nothing is anyone's
+        mockMvc.perform(get("/api/courts/{id}/slots", courtId)
+                        .param("from", from).param("to", to).param("availableOnly", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + slotId + ")].yours").value(false));
+    }
 }

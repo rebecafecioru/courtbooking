@@ -31,12 +31,14 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
 
         // availableOnly=false: taken slots are shown too, so you can join their waitlist
         fetch(`${API_URL}/api/courts/${court.id}/slots`
-            + `?from=${toLocalIso(from)}&to=${toLocalIso(to)}&availableOnly=false`)
+            + `?from=${toLocalIso(from)}&to=${toLocalIso(to)}&availableOnly=false`,
+            // Logged in: the backend marks which slots are yours or you're waiting for
+            user ? { headers: { Authorization: `Bearer ${user.token}` } } : undefined)
             .then(res => res.json())
             .then(data => {
                 setSlots([...data].sort((a, b) => a.startTime.localeCompare(b.startTime)))
             })
-    }, [court.id, refreshCount, bookingsVersion])
+    }, [court.id, refreshCount, bookingsVersion, user])
 
     // Booking and joining a waitlist work the same way: POST the slot id, then
     // show what happened. successText gets the response body.
@@ -95,6 +97,12 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
     }
 
     function renderStatus(slot) {
+        if (slot.yours) {
+            return <span className="badge badge-yours">Yours</span>
+        }
+        if (slot.onWaitlist) {
+            return <span className="badge badge-taken">On your waitlist</span>
+        }
         if (slot.status === 'BLOCKED') {
             return <span className="badge badge-closed">Closed</span>
         }
@@ -106,7 +114,8 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
     }
 
     function renderActions(slot) {
-        if (!user || slot.status === 'BLOCKED') {
+        // Your own booking or waitlist place: managed from My bookings / My waitlist
+        if (!user || slot.status === 'BLOCKED' || slot.yours || slot.onWaitlist) {
             return null
         }
         if (slot.status === 'AVAILABLE') {

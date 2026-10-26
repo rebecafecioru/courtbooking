@@ -66,6 +66,10 @@ against a half (`FullHallVersusHalfConcurrencyTest`,
   their own bookings, up until the slot starts
 - **Overlapping spaces** — a hall can be split into halves; booking or
   closing one makes the overlapping slots on the others unavailable
+- **Notifications** — when the waitlist gives you a slot, you get an in-app
+  notification (a bell in the header, checked every 30 seconds). It's saved
+  in the same transaction as the booking, so it exists exactly when the
+  booking does
 - **Weekly bookings** — book the same slot for up to 12 weeks in one go
   (e.g. a club's Tuesday session). A preview shows which weeks are free
   first, and booking is all or nothing: if any chosen week is taken in the
@@ -203,6 +207,8 @@ you don't run it, it's the part of this project I'm most proud of.
 | DELETE | `/api/bookings/series/{id}`            | Authenticated   | Cancel a weekly booking's remaining weeks |
 | DELETE | `/api/bookings/{id}`                   | Authenticated   | Cancel your own booking               |
 | POST   | `/api/waitlist`                        | Authenticated   | Join the waitlist for a taken slot    |
+| GET    | `/api/notifications/me`                | Authenticated   | Your 20 newest notifications and the unread count |
+| POST   | `/api/notifications/me/read`           | Authenticated   | Mark all your notifications read      |
 | GET    | `/api/waitlist/me`                     | Authenticated   | Your waitlist places                  |
 | DELETE | `/api/waitlist/{id}`                   | Authenticated   | Leave a waitlist                      |
 | POST   | `/api/organisations/admin`             | Super Admin     | Create an organisation                |
@@ -225,7 +231,7 @@ admin (`409`).
 
 ## What's next
 
-- Email/SMS booking confirmations (including "you got a slot from the waitlist")
+- Email confirmations, on top of the in-app notifications
 
 ## Data model
 
@@ -233,4 +239,5 @@ admin (`409`).
 Organisation 1---* Venue 1---* Court 1---* TimeSlot 1---0..1 Booking *---1 AppUser
                                                TimeSlot 1---* WaitlistEntry *---1 AppUser
                                                     Booking *---0..1 BookingSeries *---1 AppUser
+                                                                  Notification *---1 AppUser
 ```

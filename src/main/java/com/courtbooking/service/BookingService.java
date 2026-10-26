@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -98,24 +99,28 @@ public class BookingService {
     private final CourtRepository courtRepository;
     private final WaitlistEntryRepository waitlistEntryRepository;
     private final BookingSeriesRepository bookingSeriesRepository;
+    private final NotificationService notificationService;
 
     // A term's worth of weekly sessions
     public static final int MAX_SERIES_WEEKS = 12;
 
     private static final DateTimeFormatter WEEK_FORMAT = DateTimeFormatter.ofPattern("EEE d MMM", Locale.UK);
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm", Locale.UK);
 
     public BookingService(TimeSlotRepository timeSlotRepository,
                           BookingRepository bookingRepository,
                           AppUserRepository appUserRepository,
                           CourtRepository courtRepository,
                           WaitlistEntryRepository waitlistEntryRepository,
-                          BookingSeriesRepository bookingSeriesRepository) {
+                          BookingSeriesRepository bookingSeriesRepository,
+                          NotificationService notificationService) {
         this.timeSlotRepository = timeSlotRepository;
         this.bookingRepository = bookingRepository;
         this.appUserRepository = appUserRepository;
         this.courtRepository = courtRepository;
         this.waitlistEntryRepository = waitlistEntryRepository;
         this.bookingSeriesRepository = bookingSeriesRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -382,6 +387,18 @@ public class BookingService {
                 entry.getTimeSlot().getId(), entry.getId());
     }
 
+    // Of these slots, the ones the user has booked.
+    @Transactional(readOnly = true)
+    public Set<Long> slotIdsBookedBy(Long userId, Collection<Long> slotIds) {
+        return slotIds.isEmpty() ? Set.of() : new HashSet<>(bookingRepository.findSlotIdsBookedBy(userId, slotIds));
+    }
+
+    // Of these slots, the ones the user is on the waitlist for.
+    @Transactional(readOnly = true)
+    public Set<Long> slotIdsWaitedForBy(Long userId, Collection<Long> slotIds) {
+        return slotIds.isEmpty() ? Set.of() : new HashSet<>(waitlistEntryRepository.findSlotIdsWaitedForBy(userId, slotIds));
+    }
+
     // The user's bookings, earliest first.
     @Transactional(readOnly = true)
     public List<Booking> getBookingsForUser(Long userId) {
@@ -419,6 +436,11 @@ public class BookingService {
             if (!hasStarted(slot) && isFreeToBook(slot)) {
                 waitlistEntryRepository.delete(entry);
                 confirmBooking(group, slot, entry.getUser(), null);
+                // Same transaction: the message exists exactly when the booking does
+                notificationService.notify(entry.getUser(), "A place opened up: you're now booked into "
+                        + slot.getCourt().getName() + " at " + slot.getCourt().getVenue().getName() + ", "
+                        + slot.getStartTime().format(WEEK_FORMAT) + " at " + slot.getStartTime().format(TIME_FORMAT)
+                        + ". It's in My bookings.");
             }
         }
     }

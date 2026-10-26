@@ -6,6 +6,7 @@ import MyBookings from './components/MyBookings'
 import MyWaitlist from './components/MyWaitlist'
 import AdminPanel from './components/AdminPanel'
 import PlatformPanel from './components/PlatformPanel'
+import NotificationBell from './components/NotificationBell'
 import { loadSavedUser, saveUser, clearSavedUser } from './savedUser'
 import { API_URL } from './api'
 
@@ -62,6 +63,11 @@ function App() {
                         <div className="user-bar">
                             <span>{user.fullName}</span>
                             {roleLabel && <span className="badge badge-yours">{roleLabel}</span>}
+                            <NotificationBell
+                                user={user}
+                                bookingsVersion={bookingsVersion}
+                                onNews={onBookingsChanged}
+                            />
                             <button className="btn" onClick={handleLogout}>Log out</button>
                         </div>
                     )}
