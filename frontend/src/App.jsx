@@ -5,12 +5,15 @@ import RegisterForm from './components/RegisterForm'
 import MyBookings from './components/MyBookings'
 import MyWaitlist from './components/MyWaitlist'
 import AdminPanel from './components/AdminPanel'
+import PlatformPanel from './components/PlatformPanel'
 import { loadSavedUser, saveUser, clearSavedUser } from './savedUser'
 import { API_URL } from './api'
 
 function App() {
     const [organisations, setOrganisations] = useState([])
     const [selectedOrganisation, setSelectedOrganisation] = useState(null)
+    // Adding 1 to this re-fetches the organisations (after a super admin adds one)
+    const [organisationsVersion, setOrganisationsVersion] = useState(0)
     // null when logged out, otherwise { token, email, fullName, role, organisationId }.
     // Starts from localStorage, so a refresh keeps you logged in.
     const [user, setUser] = useState(loadSavedUser)
@@ -43,7 +46,7 @@ function App() {
         fetch(`${API_URL}/api/organisations`)
             .then(res => res.json())
             .then(data => setOrganisations(data))
-    }, [])
+    }, [organisationsVersion])
 
     const roleLabel = { ORG_ADMIN: 'Org admin', SUPER_ADMIN: 'Super admin' }[user?.role]
 
@@ -103,6 +106,13 @@ function App() {
                     </div>
                 )}
 
+                {user?.role === 'SUPER_ADMIN' && (
+                    <PlatformPanel
+                        user={user}
+                        organisations={organisations}
+                        onOrganisationAdded={() => setOrganisationsVersion(v => v + 1)}
+                    />
+                )}
                 {user?.role === 'SUPER_ADMIN' && !adminOrganisation && (
                     <p className="notice">Choose an organisation below to manage its courts.</p>
                 )}
