@@ -1,5 +1,6 @@
 package com.courtbooking.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -25,10 +26,16 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final AppUserDetailsService userDetailsService;
+    // Sites other than the backend's own that may call the API from a browser
+    // (app.cors.allowed-origins, comma separated). Only needed when the
+    // frontend is hosted on a different address from the backend.
+    private final List<String> allowedOrigins;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AppUserDetailsService userDetailsService) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AppUserDetailsService userDetailsService,
+                          @Value("${app.cors.allowed-origins:}") List<String> allowedOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.userDetailsService = userDetailsService;
+        this.allowedOrigins = allowedOrigins.stream().map(String::trim).filter(o -> !o.isEmpty()).toList();
     }
 
     @Bean
@@ -64,7 +71,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

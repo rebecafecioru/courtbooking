@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { API_URL } from '../api'
 
 function LoginForm({ onLogin }) {
     const [email, setEmail] = useState('')
@@ -11,7 +12,7 @@ function LoginForm({ onLogin }) {
         event.preventDefault()
         setError(null)
 
-        fetch('http://localhost:8080/api/auth/login', {
+        fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),

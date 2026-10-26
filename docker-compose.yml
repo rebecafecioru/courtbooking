@@ -1,0 +1,47 @@
+# The whole app: Postgres, the Spring Boot backend and the React frontend.
+#
+#   cp .env.example .env     # then fill in the secrets
+#   docker compose up --build
+#
+# Then open http://localhost:3000 (or the PORT you set in .env).
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: courtbooking
+      POSTGRES_USER: courtbooking
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U courtbooking -d courtbooking"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: .
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/courtbooking
+      DB_USERNAME: courtbooking
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    # No ports: only the frontend's nginx talks to it
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${PORT:-3000}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db-data:

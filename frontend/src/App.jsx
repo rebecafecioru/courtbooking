@@ -6,6 +6,7 @@ import MyBookings from './components/MyBookings'
 import MyWaitlist from './components/MyWaitlist'
 import AdminPanel from './components/AdminPanel'
 import { loadSavedUser, saveUser, clearSavedUser } from './savedUser'
+import { API_URL } from './api'
 
 function App() {
     const [organisations, setOrganisations] = useState([])
@@ -39,7 +40,7 @@ function App() {
         : user?.role === 'SUPER_ADMIN' ? selectedOrganisation : null
 
     useEffect(() => {
-        fetch('http://localhost:8080/api/organisations')
+        fetch(`${API_URL}/api/organisations`)
             .then(res => res.json())
             .then(data => setOrganisations(data))
     }, [])

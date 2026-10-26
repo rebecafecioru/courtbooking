@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatDay, formatTime } from '../formatting'
+import { API_URL } from '../api'
 
 function MyWaitlist({ user, bookingsVersion, onBookingsChanged }) {
     // null means "still loading"
@@ -8,7 +9,7 @@ function MyWaitlist({ user, bookingsVersion, onBookingsChanged }) {
     const [leavingId, setLeavingId] = useState(null)
 
     useEffect(() => {
-        fetch('http://localhost:8080/api/waitlist/me', {
+        fetch(`${API_URL}/api/waitlist/me`, {
             headers: { Authorization: `Bearer ${user.token}` },
         })
             .then(res => {
@@ -28,7 +29,7 @@ function MyWaitlist({ user, bookingsVersion, onBookingsChanged }) {
         setMessage(null)
         setLeavingId(entry.id)
 
-        fetch(`http://localhost:8080/api/waitlist/${entry.id}`, {
+        fetch(`${API_URL}/api/waitlist/${entry.id}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${user.token}` },
         })

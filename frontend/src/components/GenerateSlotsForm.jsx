@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { API_URL } from '../api'
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 
@@ -39,7 +40,7 @@ function GenerateSlotsForm({ court, user, onGenerated }) {
         setMessage(null)
         setSaving(true)
 
-        fetch('http://localhost:8080/api/admin/slots/generate', {
+        fetch(`${API_URL}/api/admin/slots/generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

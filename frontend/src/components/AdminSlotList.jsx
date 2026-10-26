@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatDay, formatTime } from '../formatting'
+import { API_URL } from '../api'
 
 // The backend wants dates like 2026-10-15T09:00:00 (local time, no timezone).
 function toLocalIso(date) {
@@ -27,7 +28,7 @@ function AdminSlotList({ court, user, bookingsVersion, onBookingsChanged }) {
         const to = new Date()
         to.setDate(to.getDate() + 14)
 
-        fetch(`http://localhost:8080/api/courts/${court.id}/slots`
+        fetch(`${API_URL}/api/courts/${court.id}/slots`
             + `?from=${toLocalIso(from)}&to=${toLocalIso(to)}&availableOnly=false`)
             .then(res => res.json())
             .then(data => {
@@ -40,7 +41,7 @@ function AdminSlotList({ court, user, bookingsVersion, onBookingsChanged }) {
         setMessage(null)
         setBusySlotId(slot.id)
 
-        fetch(`http://localhost:8080/api/admin/slots/${slot.id}/${action}`, {
+        fetch(`${API_URL}/api/admin/slots/${slot.id}/${action}`, {
             method: 'PATCH',
             headers: { Authorization: `Bearer ${user.token}` },
         })

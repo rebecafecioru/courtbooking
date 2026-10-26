@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { API_URL } from '../api'
 
 function RegisterForm({ onLogin }) {
     const [fullName, setFullName] = useState('')
@@ -10,7 +11,7 @@ function RegisterForm({ onLogin }) {
         event.preventDefault()
         setError(null)
 
-        fetch('http://localhost:8080/api/auth/register', {
+        fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fullName, email, password }),
