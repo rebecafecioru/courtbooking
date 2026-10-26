@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatDay, formatTime } from '../formatting'
+import { API_URL } from '../api'
 
 function MyBookings({ user, bookingsVersion, onBookingsChanged }) {
     // null means "still loading"
@@ -9,7 +10,7 @@ function MyBookings({ user, bookingsVersion, onBookingsChanged }) {
     const [cancellingId, setCancellingId] = useState(null)
 
     useEffect(() => {
-        fetch('http://localhost:8080/api/bookings/me', {
+        fetch(`${API_URL}/api/bookings/me`, {
             headers: { Authorization: `Bearer ${user.token}` },
         })
             .then(res => {
@@ -29,7 +30,7 @@ function MyBookings({ user, bookingsVersion, onBookingsChanged }) {
         setMessage(null)
         setCancellingId(`series-${series.id}`)
 
-        fetch(`http://localhost:8080/api/bookings/series/${series.id}`, {
+        fetch(`${API_URL}/api/bookings/series/${series.id}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${user.token}` },
         })
@@ -53,7 +54,7 @@ function MyBookings({ user, bookingsVersion, onBookingsChanged }) {
         setMessage(null)
         setCancellingId(booking.id)
 
-        fetch(`http://localhost:8080/api/bookings/${booking.id}`, {
+        fetch(`${API_URL}/api/bookings/${booking.id}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${user.token}` },
         })

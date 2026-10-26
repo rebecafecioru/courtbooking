@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import GenerateSlotsForm from './GenerateSlotsForm'
 import AdminSlotList from './AdminSlotList'
+import { API_URL } from '../api'
 
 // Lets an admin pick one of the organisation's courts, then generate,
 // block and unblock its slots.
@@ -11,7 +12,7 @@ function AdminPanel({ user, organisation, bookingsVersion, onBookingsChanged }) 
     const [courtId, setCourtId] = useState('')
 
     useEffect(() => {
-        fetch(`http://localhost:8080/api/venues?organisationId=${organisation.id}`)
+        fetch(`${API_URL}/api/venues?organisationId=${organisation.id}`)
             .then(res => res.json())
             .then(data => setVenues(data))
     }, [organisation.id])
@@ -20,7 +21,7 @@ function AdminPanel({ user, organisation, bookingsVersion, onBookingsChanged }) 
         if (!venueId) {
             return
         }
-        fetch(`http://localhost:8080/api/courts?venueId=${venueId}`)
+        fetch(`${API_URL}/api/courts?venueId=${venueId}`)
             .then(res => res.json())
             .then(data => setCourts(data))
     }, [venueId])

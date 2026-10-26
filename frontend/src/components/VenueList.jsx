@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import CourtList from './CourtList'
+import { API_URL } from '../api'
 
 function VenueList({ organisation, user, bookingsVersion, onBookingsChanged }) {
     const [venues, setVenues] = useState([])
     const [selectedVenue, setSelectedVenue] = useState(null)
 
     useEffect(() => {
-        fetch(`http://localhost:8080/api/venues?organisationId=${organisation.id}`)
+        fetch(`${API_URL}/api/venues?organisationId=${organisation.id}`)
             .then(res => res.json())
             .then(data => setVenues(data))
     }, [organisation.id])

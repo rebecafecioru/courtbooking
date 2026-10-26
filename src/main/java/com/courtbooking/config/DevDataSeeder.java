@@ -3,7 +3,7 @@ package com.courtbooking.config;
 import com.courtbooking.model.*;
 import com.courtbooking.repository.*;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -18,11 +18,13 @@ import java.util.List;
  * The venues and facilities follow what the University of Leicester lists
  * publicly. The time slots are demo slots, not the real timetable.
  *
- * Local dev only: the demo accounts have well-known passwords, so it never
- * runs on the postgres (real database) profile.
+ * Only runs when app.seed-demo-data=true: on by default for local dev, off
+ * on the postgres profile unless SEED_DEMO_DATA=true. The demo accounts have
+ * well-known passwords, so only switch it on for a throwaway demo site.
+ * It does nothing if the database already has data.
  */
 @Component
-@Profile("!postgres")
+@ConditionalOnProperty(name = "app.seed-demo-data", havingValue = "true")
 public class DevDataSeeder implements CommandLineRunner {
 
     // Each sports hall is one floor marked for several sports, so the HALL is

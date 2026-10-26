@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { formatDay, formatTime } from '../formatting'
 import SeriesPanel from './SeriesPanel'
+import { API_URL } from '../api'
 
 // The backend wants dates like 2026-10-15T09:00:00 (local time, no timezone).
 function toLocalIso(date) {
@@ -29,7 +30,7 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
         to.setDate(to.getDate() + 7)
 
         // availableOnly=false: taken slots are shown too, so you can join their waitlist
-        fetch(`http://localhost:8080/api/courts/${court.id}/slots`
+        fetch(`${API_URL}/api/courts/${court.id}/slots`
             + `?from=${toLocalIso(from)}&to=${toLocalIso(to)}&availableOnly=false`)
             .then(res => res.json())
             .then(data => {
@@ -81,13 +82,13 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
     }
 
     function handleBook(slot) {
-        sendSlotRequest(slot, 'http://localhost:8080/api/bookings',
+        sendSlotRequest(slot, `${API_URL}/api/bookings`,
             () => `Booked ${describe(slot)}.`,
             'Could not book this slot.')
     }
 
     function handleJoinWaitlist(slot) {
-        sendSlotRequest(slot, 'http://localhost:8080/api/waitlist',
+        sendSlotRequest(slot, `${API_URL}/api/waitlist`,
             entry => `You're number ${entry.position} on the waitlist for ${describe(slot)}. `
                 + `If it frees up, it will be booked for you automatically.`,
             'Could not join the waitlist.')

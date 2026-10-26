@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatDay, formatTime } from '../formatting'
+import { API_URL } from '../api'
 
 // Label and badge colour for each week's status
 const STATUSES = {
@@ -24,7 +25,7 @@ function SeriesPanel({ slot, user, bookingsVersion, onBookingsChanged, onClose }
     const [refreshCount, setRefreshCount] = useState(0)
 
     useEffect(() => {
-        fetch(`http://localhost:8080/api/bookings/series/preview?firstSlotId=${slot.id}&weeks=${weeks}`, {
+        fetch(`${API_URL}/api/bookings/series/preview?firstSlotId=${slot.id}&weeks=${weeks}`, {
             headers: { Authorization: `Bearer ${user.token}` },
         })
             .then(res => {
@@ -44,7 +45,7 @@ function SeriesPanel({ slot, user, bookingsVersion, onBookingsChanged, onClose }
         setMessage(null)
         setBooking(true)
 
-        fetch('http://localhost:8080/api/bookings/series', {
+        fetch(`${API_URL}/api/bookings/series`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

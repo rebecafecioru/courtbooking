@@ -103,7 +103,18 @@ cd courtbooking
 ./gradlew bootRun
 ```
 
-The app starts on `http://localhost:8080` with an in-memory database
+and in a second terminal, the frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The frontend calls `/api` on its own address
+and Vite forwards it to the backend (see `frontend/vite.config.js`).
+
+The backend starts on `http://localhost:8080` with an in-memory database
 already seeded with a demo organisation, two courts, a week of time slots,
 and three accounts:
 
@@ -128,8 +139,8 @@ with `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `JWT_SECRET` set as
 environment variables.
 
 The demo data and accounts above are **not** created on the `postgres`
-profile, because their passwords are public. A new database therefore has no
-admin. To make the first one, sign up through the app as normal, then
+profile unless `SEED_DEMO_DATA=true`, because their passwords are public.
+Without it a new database has no admin. To make the first one, sign up through the app as normal, then
 promote that account directly in the database:
 
 ```sql
@@ -137,6 +148,32 @@ UPDATE app_user SET role = 'SUPER_ADMIN' WHERE email = 'you@example.com';
 ```
 
 From then on, that Super Admin can create org admins through the API.
+
+### With Docker
+
+`docker-compose.yml` runs the whole thing: Postgres, the backend and the
+frontend (nginx serving the built React app and forwarding `/api` to the
+backend, so the browser only ever talks to one site).
+
+```bash
+cp .env.example .env   # then set POSTGRES_PASSWORD and JWT_SECRET
+docker compose up --build
+```
+
+Then open `http://localhost:3000`. For a throwaway public demo, set
+`SEED_DEMO_DATA=true` in `.env` to start with the demo venues, courts and
+accounts above.
+
+Other settings, all optional:
+
+| Variable | What it's for |
+|----------|----------------|
+| `PORT` | Port the site is served on (default 3000) |
+| `CORS_ALLOWED_ORIGINS` | Only if the frontend is hosted on a different address from the backend, e.g. `https://courts.example.com` |
+| `VITE_API_URL` | Build argument for the frontend image, for the same case: the backend's address |
+
+The backend trusts `X-Forwarded-*` headers from the proxy in front of it, so
+it also works behind a hosting platform's HTTPS proxy.
 
 ## Running the tests
 
