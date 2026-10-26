@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatDay, formatTime } from '../formatting'
+import SeriesPanel from './SeriesPanel'
 
 // The backend wants dates like 2026-10-15T09:00:00 (local time, no timezone).
 function toLocalIso(date) {
@@ -17,6 +18,8 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
     const [message, setMessage] = useState(null)
     // The slot a request is in flight for, so its button can say so
     const [busySlotId, setBusySlotId] = useState(null)
+    // The slot whose "book every week" panel is open, if any
+    const [seriesSlotId, setSeriesSlotId] = useState(null)
     // Adding 1 to this makes the effect below run again, which re-fetches the slots
     const [refreshCount, setRefreshCount] = useState(0)
 
@@ -96,9 +99,12 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
         }
         if (slot.status === 'AVAILABLE') {
             return user && (
-                <button onClick={() => handleBook(slot)} disabled={busySlotId !== null}>
-                    {busySlotId === slot.id ? 'Booking...' : 'Book'}
-                </button>
+                <>
+                    <button onClick={() => handleBook(slot)} disabled={busySlotId !== null}>
+                        {busySlotId === slot.id ? 'Booking...' : 'Book'}
+                    </button>{' '}
+                    <button onClick={() => setSeriesSlotId(slot.id)}>Book weekly</button>
+                </>
             )
         }
         // BOOKED, or UNAVAILABLE because an overlapping space is booked
@@ -131,6 +137,15 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
                         <li key={slot.id}>
                             {formatDay(slot.startTime)}, {formatTime(slot.startTime)} to {formatTime(slot.endTime)}{' '}
                             {renderAction(slot)}
+                            {user && seriesSlotId === slot.id && (
+                                <SeriesPanel
+                                    slot={slot}
+                                    user={user}
+                                    bookingsVersion={bookingsVersion}
+                                    onBookingsChanged={onBookingsChanged}
+                                    onClose={() => setSeriesSlotId(null)}
+                                />
+                            )}
                         </li>
                     ))}
                 </ul>

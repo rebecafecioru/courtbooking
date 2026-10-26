@@ -64,6 +64,11 @@ against a half (`FullHallVersusHalfConcurrencyTest`,
   their own bookings, up until the slot starts
 - **Overlapping spaces** — a hall can be split into halves; booking or
   closing one makes the overlapping slots on the others unavailable
+- **Weekly bookings** — book the same slot for up to 12 weeks in one go
+  (e.g. a club's Tuesday session). A preview shows which weeks are free
+  first, and booking is all or nothing: if any chosen week is taken in the
+  meantime, nothing is booked (see `SeriesBookingConcurrencyTest`). The
+  whole series, or single weeks, can be cancelled
 - **Waitlist** — queue for a taken slot; when it's cancelled, the first
   person in line is booked into it automatically, inside the cancel's own
   locked transaction, so nobody can grab it in between (see
@@ -152,6 +157,9 @@ you don't run it, it's the part of this project I'm most proud of.
 | GET    | `/api/courts/{id}/slots?from=&to=`     | Public          | Check availability (up to 31 days)    |
 | POST   | `/api/bookings`                        | Authenticated   | Book a slot                           |
 | GET    | `/api/bookings/me`                     | Authenticated   | Your bookings                         |
+| GET    | `/api/bookings/series/preview?firstSlotId=&weeks=` | Authenticated | Which weeks of a weekly booking are free |
+| POST   | `/api/bookings/series`                 | Authenticated   | Book several weeks, all or nothing    |
+| DELETE | `/api/bookings/series/{id}`            | Authenticated   | Cancel a weekly booking's remaining weeks |
 | DELETE | `/api/bookings/{id}`                   | Authenticated   | Cancel your own booking               |
 | POST   | `/api/waitlist`                        | Authenticated   | Join the waitlist for a taken slot    |
 | GET    | `/api/waitlist/me`                     | Authenticated   | Your waitlist places                  |
@@ -177,11 +185,11 @@ admin (`409`).
 ## What's next
 
 - Email/SMS booking confirmations (including "you got a slot from the waitlist")
-- Recurring bookings for regular club sessions
 
 ## Data model
 
 ```
 Organisation 1---* Venue 1---* Court 1---* TimeSlot 1---0..1 Booking *---1 AppUser
                                                TimeSlot 1---* WaitlistEntry *---1 AppUser
+                                                    Booking *---0..1 BookingSeries *---1 AppUser
 ```

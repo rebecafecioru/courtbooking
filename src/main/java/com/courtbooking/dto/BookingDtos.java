@@ -18,7 +18,8 @@ public class BookingDtos {
             LocalDateTime startTime,
             LocalDateTime endTime,
             String bookedByName,
-            String status
+            String status,
+            Long seriesId // set when this is one week of a weekly series
     ) {
         public static BookingResponse from(Booking b) {
             return new BookingResponse(
@@ -29,7 +30,8 @@ public class BookingDtos {
                     b.getTimeSlot().getStartTime(),
                     b.getTimeSlot().getEndTime(),
                     b.getBookedBy().getFullName(),
-                    b.getStatus().name()
+                    b.getStatus().name(),
+                    b.getSeries() != null ? b.getSeries().getId() : null
             );
         }
     }
