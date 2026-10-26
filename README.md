@@ -1,5 +1,7 @@
 # Court Booking Platform
 
+[![CI](https://github.com/rebecafecioru/courtbooking/actions/workflows/ci.yml/badge.svg)](https://github.com/rebecafecioru/courtbooking/actions/workflows/ci.yml)
+
 A multi-venue court booking system, built to solve a genuinely annoying real
 problem: at many schools and universities, some sports can be booked online
 and others (like volleyball, in my experience) still require phoning up

@@ -15,9 +15,17 @@ function RegisterForm({ onLogin }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fullName, email, password }),
         })
-            .then(res => {
+            .then(async res => {
                 if (res.status === 409) {
                     throw new Error('An account with this email already exists.')
+                }
+                if (res.status === 400) {
+                    // The backend says which fields are wrong, e.g. a password that's too short
+                    const body = await res.json().catch(() => ({}))
+                    const problems = Object.values(body.fieldErrors ?? {})
+                    throw new Error(problems.length > 0
+                        ? problems.join('. ') + '.'
+                        : 'Could not create your account. Check the details and try again.')
                 }
                 if (!res.ok) {
                     throw new Error('Could not create your account. Check the details and try again.')
@@ -47,9 +55,12 @@ function RegisterForm({ onLogin }) {
             />
             <input
                 type="password"
-                placeholder="Password"
+                placeholder="Password (8 to 72 characters)"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                // Same rule as the backend, so most mistakes are caught before sending
+                minLength={8}
+                maxLength={72}
                 required
             />
             <button type="submit">Create account</button>

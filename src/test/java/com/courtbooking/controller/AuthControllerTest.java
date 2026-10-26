@@ -29,7 +29,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName": "Sneaky", "email": "sneaky@test.com",
-                                 "password": "pw", "role": "SUPER_ADMIN"}
+                                 "password": "long-enough-pw", "role": "SUPER_ADMIN"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("PUBLIC_USER"))
@@ -42,7 +42,7 @@ class AuthControllerTest {
     @Test
     void registeringAnEmailTwiceIsAConflict() throws Exception {
         String body = """
-                {"fullName": "Twice", "email": "twice@test.com", "password": "pw"}
+                {"fullName": "Twice", "email": "twice@test.com", "password": "long-enough-pw"}
                 """;
         mockMvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());
@@ -61,5 +61,27 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("ORG_ADMIN"))
                 .andExpect(jsonPath("$.organisationId").isNumber());
+    }
+
+    @Test
+    void registerRejectsAShortPassword() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName": "Short", "email": "short@test.com", "password": "1234567"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.password").value("Password must be 8 to 72 characters long"));
+
+        assertEquals(false, appUserRepository.existsByEmail("short@test.com"));
+    }
+
+    @Test
+    void registerRejectsAPasswordLongerThanBcryptChecks() throws Exception {
+        String tooLong = "x".repeat(73);
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\": \"Long\", \"email\": \"long@test.com\", \"password\": \"" + tooLong + "\"}"))
+                .andExpect(status().isBadRequest());
     }
 }

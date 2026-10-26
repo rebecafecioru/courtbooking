@@ -5,13 +5,19 @@ import com.courtbooking.model.Organisation;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+import static com.courtbooking.dto.AuthDtos.MAX_PASSWORD_LENGTH;
+import static com.courtbooking.dto.AuthDtos.MIN_PASSWORD_LENGTH;
+import static com.courtbooking.dto.AuthDtos.PASSWORD_RULE;
 
 public class OrgAdminDtos {
 
     public record CreateOrgAdminRequest(
             @NotBlank String fullName,
             @Email @NotBlank String email,
-            @NotBlank String password,
+            @NotBlank @Size(min = MIN_PASSWORD_LENGTH, max = MAX_PASSWORD_LENGTH, message = PASSWORD_RULE)
+            String password,
             @NotNull Long organisationId
     ) {
     }
