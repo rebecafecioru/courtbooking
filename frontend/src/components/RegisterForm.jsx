@@ -38,7 +38,7 @@ function RegisterForm({ onLogin }) {
     }
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form className="form-stack" onSubmit={handleSubmit}>
             <h2>Create an account</h2>
             <input
                 placeholder="Full name"
@@ -63,8 +63,8 @@ function RegisterForm({ onLogin }) {
                 maxLength={72}
                 required
             />
-            <button type="submit">Create account</button>
-            {error && <p>{error}</p>}
+            <button className="btn btn-primary" type="submit">Create account</button>
+            {error && <p className="notice notice-error" role="alert">{error}</p>}
         </form>
     )
 }

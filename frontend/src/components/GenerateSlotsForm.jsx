@@ -80,37 +80,53 @@ function GenerateSlotsForm({ court, user, onGenerated }) {
     }
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form className="inset" onSubmit={handleSubmit}>
             <h3>Add slots to {court.name}</h3>
-            <p>
-                From <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} required />{' '}
-                to <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} required />
-            </p>
-            <p>
+            <div className="field-row">
+                <label className="field-row">
+                    From
+                    <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} required />
+                </label>
+                <label className="field-row">
+                    to
+                    <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} required />
+                </label>
+            </div>
+            <div className="day-picker" role="group" aria-label="Days of the week">
                 {DAYS.map(day => (
                     <label key={day}>
                         <input type="checkbox" checked={days.has(day)} onChange={() => toggleDay(day)} />
-                        {day.slice(0, 3)}{' '}
+                        {day.charAt(0) + day.slice(1, 3).toLowerCase()}
                     </label>
                 ))}
-            </p>
-            <p>
-                Between <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required />{' '}
-                and <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required />,{' '}
-                <input
-                    type="number"
-                    min="15"
-                    step="15"
-                    value={minutes}
-                    onChange={e => setMinutes(e.target.value)}
-                    required
-                />{' '}
-                minutes each
-            </p>
-            <button type="submit" disabled={saving || days.size === 0}>
-                {saving ? 'Adding...' : 'Add slots'}
-            </button>
-            {message && <p>{message}</p>}
+            </div>
+            <div className="field-row">
+                <label className="field-row">
+                    Between
+                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required />
+                </label>
+                <label className="field-row">
+                    and
+                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required />
+                </label>
+                <label className="field-row">
+                    <input
+                        type="number"
+                        min="15"
+                        step="15"
+                        value={minutes}
+                        onChange={e => setMinutes(e.target.value)}
+                        required
+                    />
+                    minutes each
+                </label>
+            </div>
+            <div className="field-row">
+                <button className="btn btn-primary" type="submit" disabled={saving || days.size === 0}>
+                    {saving ? 'Adding...' : 'Add slots'}
+                </button>
+            </div>
+            {message && <p className="notice">{message}</p>}
         </form>
     )
 }

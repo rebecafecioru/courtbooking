@@ -12,17 +12,24 @@ function CourtList({ venue, user, bookingsVersion, onBookingsChanged }) {
     }, [venue.id])
 
     return (
-        <div>
-            <h4>Courts at {venue.name}</h4>
-            <ul>
-                {courts.map(court => (
-                    <li key={court.id}>
-                        <button onClick={() => setSelectedCourt(court)}>
-                            {court.name} - {court.sportType}
-                        </button>
-                    </li>
-                ))}
-            </ul>
+        <>
+            <div className="step">
+                <span className="step-label">Court</span>
+                <ul className="chips">
+                    {courts.map(court => (
+                        <li key={court.id}>
+                            <button
+                                className="chip"
+                                aria-pressed={selectedCourt?.id === court.id}
+                                onClick={() => setSelectedCourt(court)}
+                            >
+                                {court.name}
+                                <span className="chip-detail">{court.sportType}</span>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
 
             {selectedCourt && (
                 <SlotList
@@ -33,7 +40,7 @@ function CourtList({ venue, user, bookingsVersion, onBookingsChanged }) {
                     onBookingsChanged={onBookingsChanged}
                 />
             )}
-        </div>
+        </>
     )
 }
 

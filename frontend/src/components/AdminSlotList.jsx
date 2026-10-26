@@ -8,11 +8,12 @@ function toLocalIso(date) {
         + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
-const STATUS_LABELS = {
-    AVAILABLE: 'Free',
-    BOOKED: 'Booked',
-    UNAVAILABLE: 'Covered by an overlapping booking or closure',
-    BLOCKED: 'Closed',
+// Label, badge colour and hover explanation for each status
+const STATUSES = {
+    AVAILABLE: ['Free', 'badge-free', 'Nobody has booked this'],
+    BOOKED: ['Booked', 'badge-yours', 'Someone has booked this. Cancel the booking before closing it'],
+    UNAVAILABLE: ['Covered', 'badge-taken', 'An overlapping space (the full hall or a half) is booked or closed'],
+    BLOCKED: ['Closed', 'badge-closed', 'Closed by an admin'],
 }
 
 function AdminSlotList({ court, user, bookingsVersion, onBookingsChanged }) {
@@ -65,34 +66,65 @@ function AdminSlotList({ court, user, bookingsVersion, onBookingsChanged }) {
     }
 
     if (slots === null) {
-        return <p>Loading slots...</p>
+        return <p className="muted">Loading slots...</p>
+    }
+
+    // Slots arrive sorted by start time, so each day's slots are next to each other
+    const days = []
+    for (const slot of slots) {
+        const day = formatDay(slot.startTime)
+        if (days.length === 0 || days[days.length - 1].day !== day) {
+            days.push({ day, slots: [] })
+        }
+        days[days.length - 1].slots.push(slot)
     }
 
     return (
-        <div>
+        <div className="form-stack">
             <h3>Next two weeks: {court.name}</h3>
-            {message && <p>{message}</p>}
+            {message && <p className="notice notice-error">{message}</p>}
             {slots.length === 0 ? (
-                <p>No slots in the next two weeks. Add some above.</p>
+                <p className="empty">No slots in the next two weeks. Add some above.</p>
             ) : (
-                <ul>
-                    {slots.map(slot => (
-                        <li key={slot.id}>
-                            {formatDay(slot.startTime)}, {formatTime(slot.startTime)} to {formatTime(slot.endTime)}:{' '}
-                            {STATUS_LABELS[slot.status] ?? slot.status}{' '}
-                            {slot.status === 'BLOCKED' ? (
-                                <button onClick={() => changeSlot(slot, 'unblock')} disabled={busySlotId !== null}>
-                                    {busySlotId === slot.id ? 'Reopening...' : 'Reopen'}
-                                </button>
-                            ) : slot.status !== 'BOOKED' && (
-                                // Booked slots can't be closed: cancel the booking first
-                                <button onClick={() => changeSlot(slot, 'block')} disabled={busySlotId !== null}>
-                                    {busySlotId === slot.id ? 'Closing...' : 'Close'}
-                                </button>
-                            )}
-                        </li>
-                    ))}
-                </ul>
+                days.map(({ day, slots: daySlots }) => (
+                    <div key={day} className="form-stack">
+                        <span className="step-label">{day}</span>
+                        <ul className="list">
+                            {daySlots.map(slot => {
+                                const [label, badgeClass, explanation] =
+                                    STATUSES[slot.status] ?? [slot.status, 'badge-closed', '']
+                                return (
+                                    <li className="row" key={slot.id}>
+                                        <span className="row-title">
+                                            {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
+                                        </span>
+                                        <div className="row-actions">
+                                            <span className={`badge ${badgeClass}`} title={explanation}>{label}</span>
+                                            {slot.status === 'BLOCKED' ? (
+                                                <button
+                                                    className="btn"
+                                                    onClick={() => changeSlot(slot, 'unblock')}
+                                                    disabled={busySlotId !== null}
+                                                >
+                                                    {busySlotId === slot.id ? 'Reopening...' : 'Reopen'}
+                                                </button>
+                                            ) : slot.status !== 'BOOKED' && (
+                                                // Booked slots can't be closed: cancel the booking first
+                                                <button
+                                                    className="btn btn-danger"
+                                                    onClick={() => changeSlot(slot, 'block')}
+                                                    disabled={busySlotId !== null}
+                                                >
+                                                    {busySlotId === slot.id ? 'Closing...' : 'Close'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </li>
+                                )
+                            })}
+                        </ul>
+                    </div>
+                ))
             )}
         </div>
     )

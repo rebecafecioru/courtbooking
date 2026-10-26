@@ -106,48 +106,63 @@ function MyBookings({ user, bookingsVersion, onBookingsChanged }) {
     }
 
     return (
-        <div>
+        <section className="card">
             <h2>My bookings</h2>
-            {message && <p>{message}</p>}
+            {message && <p className="notice">{message}</p>}
             {upcoming.length === 0 ? (
-                <p>You have no upcoming bookings.</p>
+                <p className="empty">You have no upcoming bookings.</p>
             ) : (
-                <ul>
+                <ul className="list">
                     {upcoming.map(booking => (
-                        <li key={booking.id}>
-                            {booking.courtName} at {booking.venueName}:{' '}
-                            {formatDay(booking.startTime)}, {formatTime(booking.startTime)} to {formatTime(booking.endTime)}{' '}
-                            {booking.seriesId !== null && '(weekly) '}
-                            <button
-                                onClick={() => handleCancel(booking)}
-                                disabled={cancellingId !== null}
-                            >
-                                {cancellingId === booking.id ? 'Cancelling...' : 'Cancel'}
-                            </button>
+                        <li className="row" key={booking.id}>
+                            <div className="row-main">
+                                <span className="row-title">
+                                    {formatDay(booking.startTime)}, {formatTime(booking.startTime)}–{formatTime(booking.endTime)}
+                                </span>
+                                <span className="row-meta">{booking.courtName} · {booking.venueName}</span>
+                            </div>
+                            <div className="row-actions">
+                                {booking.seriesId !== null && <span className="badge badge-yours">Weekly</span>}
+                                <button
+                                    className="btn btn-danger"
+                                    onClick={() => handleCancel(booking)}
+                                    disabled={cancellingId !== null}
+                                >
+                                    {cancellingId === booking.id ? 'Cancelling...' : 'Cancel'}
+                                </button>
+                            </div>
                         </li>
                     ))}
                 </ul>
             )}
             {seriesList.length > 0 && (
-                <>
-                    <h3>Weekly bookings</h3>
-                    <ul>
+                <div className="step">
+                    <span className="step-label">Weekly bookings</span>
+                    <ul className="list">
                         {seriesList.map(series => (
-                            <li key={series.id}>
-                                {series.courtName} at {series.venueName}, {series.weekday} at {series.time}:{' '}
-                                {series.weeksLeft} {series.weeksLeft === 1 ? 'week' : 'weeks'} left{' '}
-                                <button
-                                    onClick={() => handleCancelSeries(series)}
-                                    disabled={cancellingId !== null}
-                                >
-                                    {cancellingId === `series-${series.id}` ? 'Cancelling...' : 'Cancel all remaining weeks'}
-                                </button>
+                            <li className="row" key={series.id}>
+                                <div className="row-main">
+                                    <span className="row-title">{series.weekday} at {series.time}</span>
+                                    <span className="row-meta">
+                                        {series.courtName} · {series.venueName} ·{' '}
+                                        {series.weeksLeft} {series.weeksLeft === 1 ? 'week' : 'weeks'} left
+                                    </span>
+                                </div>
+                                <div className="row-actions">
+                                    <button
+                                        className="btn btn-danger"
+                                        onClick={() => handleCancelSeries(series)}
+                                        disabled={cancellingId !== null}
+                                    >
+                                        {cancellingId === `series-${series.id}` ? 'Cancelling...' : 'Cancel all remaining'}
+                                    </button>
+                                </div>
                             </li>
                         ))}
                     </ul>
-                </>
+                </div>
             )}
-        </div>
+        </section>
     )
 }
 
