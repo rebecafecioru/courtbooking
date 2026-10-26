@@ -23,6 +23,10 @@ public interface TimeSlotRepository extends JpaRepository<TimeSlot, Long> {
         LocalDateTime getEndTime();
     }
 
+    // The court's slot with exactly these times, if it has one
+    Optional<TimeSlot> findFirstByCourtIdAndStartTimeAndEndTime(
+            Long courtId, LocalDateTime startTime, LocalDateTime endTime);
+
     List<TimeSlot> findByCourtIdAndStartTimeBetween(Long courtId, LocalDateTime from, LocalDateTime to);
 
     List<TimeSlot> findByCourtIdAndStatusAndStartTimeBetween(

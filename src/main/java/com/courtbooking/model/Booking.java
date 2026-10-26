@@ -32,6 +32,11 @@ public class Booking {
     @Enumerated(EnumType.STRING)
     private BookingStatus status = BookingStatus.CONFIRMED;
 
+    // Set when this booking is one week of a weekly series; null for a one-off
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "series_id")
+    private BookingSeries series;
+
     protected Booking() {
     }
 
@@ -40,6 +45,11 @@ public class Booking {
         this.bookedBy = bookedBy;
         this.bookedAt = LocalDateTime.now();
         this.status = BookingStatus.CONFIRMED;
+    }
+
+    public Booking(TimeSlot timeSlot, AppUser bookedBy, BookingSeries series) {
+        this(timeSlot, bookedBy);
+        this.series = series;
     }
 
     public Long getId() {
@@ -52,6 +62,10 @@ public class Booking {
 
     public AppUser getBookedBy() {
         return bookedBy;
+    }
+
+    public BookingSeries getSeries() {
+        return series;
     }
 
     public LocalDateTime getBookedAt() {

@@ -1,27 +1,36 @@
 package com.courtbooking.service;
 
+import com.courtbooking.exception.BadRequestException;
 import com.courtbooking.exception.ResourceNotFoundException;
 import com.courtbooking.exception.SlotNotAvailableException;
 import com.courtbooking.exception.WaitlistException;
 import com.courtbooking.model.AppUser;
 import com.courtbooking.model.Booking;
+import com.courtbooking.model.BookingSeries;
 import com.courtbooking.model.Court;
 import com.courtbooking.model.SlotStatus;
 import com.courtbooking.model.TimeSlot;
 import com.courtbooking.model.WaitlistEntry;
 import com.courtbooking.repository.AppUserRepository;
 import com.courtbooking.repository.BookingRepository;
+import com.courtbooking.repository.BookingSeriesRepository;
 import com.courtbooking.repository.CourtRepository;
 import com.courtbooking.repository.TimeSlotRepository;
 import com.courtbooking.repository.WaitlistEntryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Handles booking and cancellation.
@@ -73,6 +82,12 @@ import java.util.Set;
  * transaction while the slots are still locked, so nobody can grab it in
  * between. Joining and leaving a waitlist take the same locks, so they can't
  * race with a cancel either.
+ * <p>
+ * Weekly series: a user can book the same slot for several weeks in one go.
+ * It's all or nothing: every week is locked and checked first, and if any
+ * isn't free, nothing is booked. That's safe to do in one transaction because
+ * every path here locks the hall's court row first, so nothing else can
+ * change the hall while the series is being checked and booked.
  */
 @Service
 public class BookingService {
@@ -82,17 +97,25 @@ public class BookingService {
     private final AppUserRepository appUserRepository;
     private final CourtRepository courtRepository;
     private final WaitlistEntryRepository waitlistEntryRepository;
+    private final BookingSeriesRepository bookingSeriesRepository;
+
+    // A term's worth of weekly sessions
+    public static final int MAX_SERIES_WEEKS = 12;
+
+    private static final DateTimeFormatter WEEK_FORMAT = DateTimeFormatter.ofPattern("EEE d MMM", Locale.UK);
 
     public BookingService(TimeSlotRepository timeSlotRepository,
                           BookingRepository bookingRepository,
                           AppUserRepository appUserRepository,
                           CourtRepository courtRepository,
-                          WaitlistEntryRepository waitlistEntryRepository) {
+                          WaitlistEntryRepository waitlistEntryRepository,
+                          BookingSeriesRepository bookingSeriesRepository) {
         this.timeSlotRepository = timeSlotRepository;
         this.bookingRepository = bookingRepository;
         this.appUserRepository = appUserRepository;
         this.courtRepository = courtRepository;
         this.waitlistEntryRepository = waitlistEntryRepository;
+        this.bookingSeriesRepository = bookingSeriesRepository;
     }
 
     @Transactional
@@ -117,7 +140,7 @@ public class BookingService {
             throw new SlotNotAvailableException("Part of this space is already booked or closed at that time.");
         }
 
-        return confirmBooking(group, slot, findUser(userId));
+        return confirmBooking(group, slot, findUser(userId), null);
     }
 
     @Transactional
@@ -129,7 +152,95 @@ public class BookingService {
             throw new SlotNotAvailableException("You can only cancel your own bookings.");
         }
 
-        Long slotId = booking.getTimeSlot().getId();
+        if (!cancelIfNotStarted(booking)) {
+            throw new SlotNotAvailableException("This booking has already started, so it can't be cancelled.");
+        }
+    }
+
+    // What booking this slot every week would look like. Takes no locks and
+    // books nothing: it's a snapshot, and a week shown as free can be taken
+    // before the user books (bookSeries checks again under the locks).
+    @Transactional(readOnly = true)
+    public List<SeriesWeek> previewSeries(Long firstSlotId, int weeks) {
+        if (weeks < 1 || weeks > MAX_SERIES_WEEKS) {
+            throw new BadRequestException("A series can be 1 to " + MAX_SERIES_WEEKS + " weeks long.");
+        }
+        TimeSlot first = timeSlotRepository.findById(firstSlotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Time slot " + firstSlotId + " not found"));
+
+        List<SeriesWeek> result = new ArrayList<>();
+        for (int i = 0; i < weeks; i++) {
+            LocalDateTime start = first.getStartTime().plusWeeks(i);
+            LocalDateTime end = first.getEndTime().plusWeeks(i);
+            TimeSlot slot = timeSlotRepository
+                    .findFirstByCourtIdAndStartTimeAndEndTime(first.getCourt().getId(), start, end)
+                    .orElse(null);
+            result.add(new SeriesWeek(i + 1, slot, start, end, weekStatus(slot)));
+        }
+        return result;
+    }
+
+    // Books these slots (the same court and time, on different weeks) as one
+    // series. All or nothing: if any isn't free, nothing is booked and the
+    // error names the weeks that aren't.
+    @Transactional
+    public List<Booking> bookSeries(List<Long> timeSlotIds, Long userId) {
+        List<Long> ids = timeSlotIds.stream().distinct().toList();
+        if (ids.isEmpty() || ids.size() > MAX_SERIES_WEEKS) {
+            throw new BadRequestException("A series can be 1 to " + MAX_SERIES_WEEKS + " weeks long.");
+        }
+
+        List<TimeSlot> group = lockSeriesGroup(ids);
+        List<TimeSlot> slots = ids.stream()
+                .map(id -> findInGroup(group, id))
+                .sorted(Comparator.comparing(TimeSlot::getStartTime))
+                .toList();
+        checkSameTimeEachWeek(slots);
+
+        // Check every week before booking any, so a clash in week 5 doesn't
+        // leave weeks 1-4 booked
+        List<TimeSlot> notFree = slots.stream()
+                .filter(s -> hasStarted(s) || !isFreeToBook(s))
+                .toList();
+        if (!notFree.isEmpty()) {
+            throw new SlotNotAvailableException("Nothing was booked, because these weeks are no longer free: "
+                    + notFree.stream().map(s -> s.getStartTime().format(WEEK_FORMAT))
+                    .collect(Collectors.joining(", "))
+                    + ". Check the weeks again and book the free ones.");
+        }
+
+        AppUser user = findUser(userId);
+        BookingSeries series = bookingSeriesRepository.save(new BookingSeries(user));
+        List<Booking> bookings = new ArrayList<>();
+        for (TimeSlot slot : slots) {
+            bookings.add(confirmBooking(group, slot, user, series));
+        }
+        return bookings;
+    }
+
+    // Cancels every week of the series that hasn't started yet; each freed slot
+    // goes to its waitlist as usual. Returns how many weeks were cancelled.
+    @Transactional
+    public int cancelSeries(Long seriesId, Long requestingUserId) {
+        BookingSeries series = bookingSeriesRepository.findById(seriesId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking series " + seriesId + " not found"));
+        if (!series.getBookedBy().getId().equals(requestingUserId)) {
+            throw new SlotNotAvailableException("You can only cancel your own bookings.");
+        }
+
+        int cancelled = 0;
+        for (Booking booking : bookingRepository.findBySeriesIdOrderById(seriesId)) {
+            if (cancelIfNotStarted(booking)) {
+                cancelled++;
+            }
+        }
+        return cancelled;
+    }
+
+    // Cancels the booking and hands the slot to its waitlist, unless the slot
+    // has already started (then it does nothing and returns false).
+    private boolean cancelIfNotStarted(Booking booking) {
+        Long slotId = booking.getTimeSlot().getId(); // just the id: the slot itself is read under the lock
         // The whole hall, not just this slot's group: a promotion can hand out
         // a different slot in the family (e.g. the full hall after a half is
         // cancelled), and every slot that changes needs to be locked and refreshed.
@@ -137,7 +248,7 @@ public class BookingService {
         TimeSlot slot = findInGroup(group, slotId);
 
         if (hasStarted(slot)) {
-            throw new SlotNotAvailableException("This booking has already started, so it can't be cancelled.");
+            return false;
         }
 
         // Deleted rather than soft-marked CANCELLED, because the unique
@@ -149,6 +260,35 @@ public class BookingService {
         slot.setStatus(SlotStatus.AVAILABLE);
         refreshOverlaps(group);
         promoteFromWaitlist(group, slot);
+        return true;
+    }
+
+    private SeriesWeek.Status weekStatus(TimeSlot slot) {
+        if (slot == null) {
+            return SeriesWeek.Status.NO_SLOT;
+        }
+        if (hasStarted(slot)) {
+            return SeriesWeek.Status.STARTED;
+        }
+        if (slot.getStatus() == SlotStatus.BLOCKED) {
+            return SeriesWeek.Status.CLOSED;
+        }
+        return isFreeToBook(slot) ? SeriesWeek.Status.FREE : SeriesWeek.Status.TAKEN;
+    }
+
+    // A series is one court at the same time of day, on the same weekday,
+    // for the same length: slots must be whole weeks apart.
+    private void checkSameTimeEachWeek(List<TimeSlot> slotsByStart) {
+        TimeSlot first = slotsByStart.get(0);
+        Duration length = Duration.between(first.getStartTime(), first.getEndTime());
+        for (TimeSlot s : slotsByStart) {
+            long days = ChronoUnit.DAYS.between(first.getStartTime(), s.getStartTime());
+            boolean sameTime = s.getStartTime().equals(first.getStartTime().plusDays(days));
+            if (days % 7 != 0 || !sameTime
+                    || !Duration.between(s.getStartTime(), s.getEndTime()).equals(length)) {
+                throw new BadRequestException("A series has to be the same time on the same day each week.");
+            }
+        }
     }
 
     // Org admin: close a slot, e.g. for maintenance.
@@ -248,14 +388,15 @@ public class BookingService {
         return bookingRepository.findByUserWithDetails(userId);
     }
 
-    // Marks the slot BOOKED and saves the booking. The caller must already hold
-    // the group's locks and have checked the slot is free.
-    private Booking confirmBooking(List<TimeSlot> group, TimeSlot slot, AppUser user) {
+    // Marks the slot BOOKED and saves the booking (series is null for a
+    // one-off). The caller must already hold the group's locks and have
+    // checked the slot is free.
+    private Booking confirmBooking(List<TimeSlot> group, TimeSlot slot, AppUser user, BookingSeries series) {
         slot.setStatus(SlotStatus.BOOKED);
         timeSlotRepository.save(slot); // optimistic @Version check happens on commit
         refreshOverlaps(group);
 
-        return bookingRepository.save(new Booking(slot, user)); // unique constraint is the final backstop
+        return bookingRepository.save(new Booking(slot, user, series)); // unique constraint is the final backstop
     }
 
     // Gives the freed slot, and any slot it was covering, to the people waiting
@@ -277,7 +418,7 @@ public class BookingService {
             // handed out.
             if (!hasStarted(slot) && isFreeToBook(slot)) {
                 waitlistEntryRepository.delete(entry);
-                confirmBooking(group, slot, entry.getUser());
+                confirmBooking(group, slot, entry.getUser(), null);
             }
         }
     }
@@ -334,6 +475,31 @@ public class BookingService {
         if (!relatedCourtIds.isEmpty()) {
             ids.addAll(timeSlotRepository.findIdsByCourtsOverlapping(
                     relatedCourtIds, window.getStartTime(), window.getEndTime()));
+        }
+        return timeSlotRepository.findAllByIdForUpdate(ids);
+    }
+
+    // lockSlotGroup for several slots at once: the hall, then every slot and
+    // everything overlapping any of them, in one id-ordered lock. The slots
+    // must all be on the same court (so there's only one hall to lock).
+    private List<TimeSlot> lockSeriesGroup(List<Long> timeSlotIds) {
+        List<TimeSlotRepository.SlotWindow> windows = timeSlotIds.stream()
+                .map(id -> timeSlotRepository.findWindowById(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("Time slot " + id + " not found")))
+                .toList();
+        Long courtId = windows.get(0).getCourtId();
+        if (windows.stream().anyMatch(w -> !w.getCourtId().equals(courtId))) {
+            throw new BadRequestException("All the weeks of a series have to be on the same court.");
+        }
+        lockHall(courtId);
+
+        Set<Long> ids = new HashSet<>(timeSlotIds);
+        List<Long> relatedCourtIds = relatedCourtIds(courtId);
+        if (!relatedCourtIds.isEmpty()) {
+            for (TimeSlotRepository.SlotWindow w : windows) {
+                ids.addAll(timeSlotRepository.findIdsByCourtsOverlapping(
+                        relatedCourtIds, w.getStartTime(), w.getEndTime()));
+            }
         }
         return timeSlotRepository.findAllByIdForUpdate(ids);
     }

@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByBookedById(Long userId);
     Optional<Booking> findByTimeSlotId(Long timeSlotId);
+    List<Booking> findBySeriesIdOrderById(Long seriesId);
 
     // Fetches the slot, court and venue in the same query, so building a
     // BookingResponse for each row doesn't trigger extra lazy-loading queries.
