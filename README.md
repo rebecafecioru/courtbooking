@@ -124,7 +124,9 @@ and three accounts:
 | Public User| student@leicester-demo.ac.uk    | password123 |
 | Super Admin| superadmin@courtbooking-demo.dev | password123 |
 
-Use the Super Admin to create org admins with `POST /api/admin/org-admins`.
+Log in as the Super Admin to add organisations and their org admins (the
+"Platform" section). An org admin can then add venues and courts under
+"Manage courts", including halves of a hall ("Part of"), and give them slots.
 
 The H2 console is available at `http://localhost:8080/h2-console`
 (JDBC URL: `jdbc:h2:mem:courtbooking`).
@@ -147,7 +149,7 @@ promote that account directly in the database:
 UPDATE app_user SET role = 'SUPER_ADMIN' WHERE email = 'you@example.com';
 ```
 
-From then on, that Super Admin can create org admins through the API.
+From then on, that Super Admin can set everything else up in the app.
 
 ### With Docker
 
