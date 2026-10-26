@@ -68,7 +68,7 @@ class OrgAdminControllerTest {
     }
 
     private String newAdminJson(String email, Long organisationId) {
-        return "{\"fullName\":\"New Admin\",\"email\":\"" + email + "\",\"password\":\"secret\",\"organisationId\":"
+        return "{\"fullName\":\"New Admin\",\"email\":\"" + email + "\",\"password\":\"secret-pass\",\"organisationId\":"
                 + organisationId + "}";
     }
 
@@ -95,7 +95,7 @@ class OrgAdminControllerTest {
         AppUser created = user("new@orgadmins.test");
         assertThat(created.getRole()).isEqualTo(Role.ORG_ADMIN);
         assertThat(created.getOrganisation().getId()).isEqualTo(orgId);
-        assertThat(passwordEncoder.matches("secret", created.getPasswordHash())).isTrue();
+        assertThat(passwordEncoder.matches("secret-pass", created.getPasswordHash())).isTrue();
     }
 
     @Test
@@ -117,7 +117,7 @@ class OrgAdminControllerTest {
 
     @Test
     void createOrgAdminWithInvalidBodyIsBadRequest() throws Exception {
-        createOrgAdmin(SUPER_ADMIN, "{\"fullName\":\"\",\"email\":\"not-an-email\",\"password\":\"secret\"}")
+        createOrgAdmin(SUPER_ADMIN, "{\"fullName\":\"\",\"email\":\"not-an-email\",\"password\":\"secret-pass\"}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.fullName").exists())
                 .andExpect(jsonPath("$.fieldErrors.email").exists())
