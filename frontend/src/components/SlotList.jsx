@@ -93,62 +93,101 @@ function SlotList({ court, user, bookingsVersion, onBookingsChanged }) {
             'Could not join the waitlist.')
     }
 
-    function renderAction(slot) {
+    function renderStatus(slot) {
         if (slot.status === 'BLOCKED') {
-            return <span>Closed</span>
+            return <span className="badge badge-closed">Closed</span>
         }
         if (slot.status === 'AVAILABLE') {
-            return user && (
+            return <span className="badge badge-free">Free</span>
+        }
+        // BOOKED, or UNAVAILABLE because an overlapping space is booked
+        return <span className="badge badge-taken">Taken</span>
+    }
+
+    function renderActions(slot) {
+        if (!user || slot.status === 'BLOCKED') {
+            return null
+        }
+        if (slot.status === 'AVAILABLE') {
+            return (
                 <>
-                    <button onClick={() => handleBook(slot)} disabled={busySlotId !== null}>
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => handleBook(slot)}
+                        disabled={busySlotId !== null}
+                    >
                         {busySlotId === slot.id ? 'Booking...' : 'Book'}
-                    </button>{' '}
-                    <button onClick={() => setSeriesSlotId(slot.id)}>Book weekly</button>
+                    </button>
+                    <button
+                        className="btn"
+                        onClick={() => setSeriesSlotId(seriesSlotId === slot.id ? null : slot.id)}
+                        aria-expanded={seriesSlotId === slot.id}
+                    >
+                        Book weekly
+                    </button>
                 </>
             )
         }
-        // BOOKED, or UNAVAILABLE because an overlapping space is booked
         return (
-            <>
-                <span>Taken</span>{' '}
-                {user && (
-                    <button onClick={() => handleJoinWaitlist(slot)} disabled={busySlotId !== null}>
-                        {busySlotId === slot.id ? 'Joining...' : 'Join waitlist'}
-                    </button>
-                )}
-            </>
+            <button className="btn" onClick={() => handleJoinWaitlist(slot)} disabled={busySlotId !== null}>
+                {busySlotId === slot.id ? 'Joining...' : 'Join waitlist'}
+            </button>
         )
     }
 
     if (slots === null) {
-        return <p>Loading slots...</p>
+        return <p className="muted">Loading slots...</p>
+    }
+
+    // Slots arrive sorted by start time, so each day's slots are next to each other
+    const days = []
+    for (const slot of slots) {
+        const day = formatDay(slot.startTime)
+        if (days.length === 0 || days[days.length - 1].day !== day) {
+            days.push({ day, slots: [] })
+        }
+        days[days.length - 1].slots.push(slot)
     }
 
     return (
-        <div>
-            <h5>Slots: {court.name}</h5>
-            {!user && <p>Log in to book a slot or join a waitlist.</p>}
-            {message?.version === bookingsVersion && <p>{message.text}</p>}
+        <div className="step">
+            <span className="step-label">Slots: {court.name}</span>
+            {!user && <p className="notice">Log in to book a slot or join a waitlist.</p>}
+            {message?.version === bookingsVersion && <p className="notice">{message.text}</p>}
             {slots.length === 0 ? (
-                <p>No slots in the next 7 days.</p>
+                <p className="empty">No slots in the next 7 days.</p>
             ) : (
-                <ul>
-                    {slots.map(slot => (
-                        <li key={slot.id}>
-                            {formatDay(slot.startTime)}, {formatTime(slot.startTime)} to {formatTime(slot.endTime)}{' '}
-                            {renderAction(slot)}
-                            {user && seriesSlotId === slot.id && (
-                                <SeriesPanel
-                                    slot={slot}
-                                    user={user}
-                                    bookingsVersion={bookingsVersion}
-                                    onBookingsChanged={onBookingsChanged}
-                                    onClose={() => setSeriesSlotId(null)}
-                                />
-                            )}
-                        </li>
-                    ))}
-                </ul>
+                days.map(({ day, slots: daySlots }) => (
+                    <div key={day} className="form-stack">
+                        <h3>{day}</h3>
+                        <ul className="list">
+                            {daySlots.map(slot => (
+                                <li className="row" key={slot.id}>
+                                    <div className="row-main">
+                                        <span className="row-title">
+                                            {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
+                                        </span>
+                                    </div>
+                                    <div className="row-actions">
+                                        {renderStatus(slot)}
+                                        {renderActions(slot)}
+                                    </div>
+                                    {user && seriesSlotId === slot.id && (
+                                        <div className="row-expanded">
+                                            <SeriesPanel
+                                                slot={slot}
+                                                user={user}
+                                                bookingsVersion={bookingsVersion}
+                                                onBookingsChanged={onBookingsChanged}
+                                                onClose={() => setSeriesSlotId(null)}
+                                            />
+                                        </div>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))
             )}
         </div>
     )

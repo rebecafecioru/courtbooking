@@ -27,7 +27,7 @@ function LoginForm({ onLogin }) {
     }
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form className="form-stack" onSubmit={handleSubmit}>
             <h2>Log in</h2>
             <input
                 type="email"
@@ -43,8 +43,8 @@ function LoginForm({ onLogin }) {
                 onChange={e => setPassword(e.target.value)}
                 required
             />
-            <button type="submit">Log in</button>
-            {error && <p>{error}</p>}
+            <button className="btn btn-primary" type="submit">Log in</button>
+            {error && <p className="notice notice-error" role="alert">{error}</p>}
         </form>
     )
 }

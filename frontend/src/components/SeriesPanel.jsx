@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { formatDay, formatTime } from '../formatting'
 
-const STATUS_LABELS = {
-    FREE: 'Free',
-    TAKEN: 'Taken',
-    CLOSED: 'Closed',
-    NO_SLOT: 'No slot that week yet',
-    STARTED: 'Too late',
+// Label and badge colour for each week's status
+const STATUSES = {
+    FREE: ['Free', 'badge-free'],
+    TAKEN: ['Taken', 'badge-taken'],
+    CLOSED: ['Closed', 'badge-closed'],
+    NO_SLOT: ['No slot yet', 'badge-closed'],
+    STARTED: ['Too late', 'badge-closed'],
 }
 
 // "Book this slot every week": previews the coming weeks, then books the
@@ -71,39 +72,56 @@ function SeriesPanel({ slot, user, bookingsVersion, onBookingsChanged, onClose }
     const allFree = preview !== null && preview.length > 0 && freeIds.length === preview.length
 
     return (
-        <div>
-            <p>
-                Book {formatTime(slot.startTime)} to {formatTime(slot.endTime)} every week for{' '}
-                <select value={weeks} onChange={e => setWeeks(Number(e.target.value))}>
+        <div className="inset">
+            <div className="field-row">
+                <span>
+                    Every week at {formatTime(slot.startTime)}–{formatTime(slot.endTime)}, for
+                </span>
+                <select
+                    aria-label="Number of weeks"
+                    value={weeks}
+                    onChange={e => setWeeks(Number(e.target.value))}
+                >
                     {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
                         <option key={n} value={n}>{n} weeks</option>
                     ))}
-                </select>{' '}
-                <button onClick={onClose}>Close</button>
-            </p>
-            {message && <p>{message}</p>}
+                </select>
+                <button className="btn" onClick={onClose}>Close</button>
+            </div>
+            {message && <p className="notice">{message}</p>}
             {preview === null ? (
-                <p>Checking the coming weeks...</p>
+                <p className="muted">Checking the coming weeks...</p>
             ) : (
                 <>
-                    <ul>
-                        {preview.map(w => (
-                            <li key={w.week}>
-                                Week {w.week}, {formatDay(w.startTime)}: {STATUS_LABELS[w.status] ?? w.status}
-                            </li>
-                        ))}
+                    <ul className="list">
+                        {preview.map(w => {
+                            const [label, badgeClass] = STATUSES[w.status] ?? [w.status, 'badge-closed']
+                            return (
+                                <li className="row" key={w.week}>
+                                    <span>
+                                        <span className="muted">Week {w.week}</span> · {formatDay(w.startTime)}
+                                    </span>
+                                    <span className={`badge ${badgeClass}`}>{label}</span>
+                                </li>
+                            )
+                        })}
                     </ul>
-                    {allFree ? (
-                        <button onClick={() => handleBook(freeIds)} disabled={booking}>
-                            {booking ? 'Booking...' : `Book all ${freeIds.length} weeks`}
-                        </button>
-                    ) : freeIds.length > 0 ? (
-                        <button onClick={() => handleBook(freeIds)} disabled={booking}>
-                            {booking ? 'Booking...' : `Book the ${freeIds.length} free weeks`}
-                        </button>
-                    ) : (
-                        <p>None of these weeks are free.</p>
-                    )}
+                    <div className="field-row">
+                        {freeIds.length > 0 ? (
+                            <button className="btn btn-primary" onClick={() => handleBook(freeIds)} disabled={booking}>
+                                {booking
+                                    ? 'Booking...'
+                                    : freeIds.length === 1 ? 'Book the 1 free week'
+                                        : allFree ? `Book all ${freeIds.length} weeks`
+                                            : `Book the ${freeIds.length} free weeks`}
+                            </button>
+                        ) : (
+                            <p className="empty">None of these weeks are free.</p>
+                        )}
+                        <span className="muted">
+                            All or nothing: if a week is taken before you click, nothing is booked.
+                        </span>
+                    </div>
                 </>
             )}
         </div>

@@ -34,26 +34,31 @@ function AdminPanel({ user, organisation, bookingsVersion, onBookingsChanged }) 
     const court = courts.find(c => String(c.id) === courtId)
 
     return (
-        <div>
-            <h2>Manage courts: {organisation.name}</h2>
-            <select value={venueId} onChange={handleVenueChange}>
-                <option value="">Choose a venue</option>
-                {venues.map(venue => (
-                    <option key={venue.id} value={venue.id}>{venue.name}</option>
-                ))}
-            </select>{' '}
-            {venueId && (
-                <select value={courtId} onChange={e => setCourtId(e.target.value)}>
-                    <option value="">Choose a court</option>
-                    {courts.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+        <section className="card">
+            <div className="card-header">
+                <h2>Manage courts</h2>
+                <span className="muted">{organisation.name}</span>
+            </div>
+            <div className="field-row">
+                <select aria-label="Venue" value={venueId} onChange={handleVenueChange}>
+                    <option value="">Choose a venue</option>
+                    {venues.map(venue => (
+                        <option key={venue.id} value={venue.id}>{venue.name}</option>
                     ))}
                 </select>
-            )}
+                {venueId && (
+                    <select aria-label="Court" value={courtId} onChange={e => setCourtId(e.target.value)}>
+                        <option value="">Choose a court</option>
+                        {courts.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                )}
+            </div>
 
             {court && (
                 // key: start fresh (messages, form) when the court changes
-                <div key={court.id}>
+                <div key={court.id} className="form-stack">
                     <GenerateSlotsForm court={court} user={user} onGenerated={onBookingsChanged} />
                     <AdminSlotList
                         court={court}
@@ -63,7 +68,7 @@ function AdminPanel({ user, organisation, bookingsVersion, onBookingsChanged }) 
                     />
                 </div>
             )}
-        </div>
+        </section>
     )
 }
 

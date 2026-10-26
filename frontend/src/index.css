@@ -1,111 +1,478 @@
+/*
+ * Court Booking styles. Plain CSS, no framework: colour and spacing tokens
+ * here, then a handful of reusable pieces (card, row, chip, badge, button,
+ * notice) that the components put together.
+ */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-sunken: #f8fafb;
+  --text: #17212b;
+  --muted: #5d6b79;
+  --border: #dfe4ea;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --primary: #0f766e;
+  --primary-hover: #0b5f58;
+  --primary-soft: #e3f3f1;
+  --on-primary: #ffffff;
+  --focus: #14b8a6;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+
+  /* Slot status badges */
+  --free: #166534;
+  --free-bg: #e5f5ea;
+  --taken: #9a4a07;
+  --taken-bg: #fdf1df;
+  --closed: #475467;
+  --closed-bg: #eceff3;
+  --yours: #1e40af;
+  --yours-bg: #e6edfd;
+
+  --radius: 10px;
+  --radius-small: 6px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  font: 16px/1.5 var(--sans);
   color: var(--text);
   background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  color-scheme: light dark;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+    --bg: #0f1418;
+    --surface: #182027;
+    --surface-sunken: #131a20;
+    --text: #e6edf3;
+    --muted: #9aa8b5;
+    --border: #2a353f;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --primary: #2bb3a3;
+    --primary-hover: #4cc7b8;
+    --primary-soft: #143a37;
+    --on-primary: #06201d;
+    --focus: #5eead4;
+
+    --danger: #f97066;
+    --danger-soft: #3b1a17;
+
+    --free: #6ee79a;
+    --free-bg: #12301d;
+    --taken: #f7b267;
+    --taken-bg: #3a2610;
+    --closed: #b3bfcb;
+    --closed-bg: #262f38;
+    --yours: #9cb8ff;
+    --yours-bg: #1b2747;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--bg);
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+h1, h2, h3, h4 {
+  margin: 0;
+  line-height: 1.25;
+  color: var(--text);
 }
 
-h1,
 h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+  font-size: 1.2rem;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+h3 {
+  font-size: 1rem;
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
+
 p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+/* ---------- Page layout ---------- */
+
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+.app-header-inner,
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 60px;
+}
+
+.app-title {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-title-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--primary);
+  box-shadow: inset 0 0 0 3px var(--surface), inset 0 0 0 5px var(--primary);
+}
+
+.user-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.page {
+  padding-top: 24px;
+  padding-bottom: 48px;
+  display: grid;
+  gap: 20px;
+}
+
+/* Two cards side by side on wide screens, stacked on phones */
+.grid-2 {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+
+/* ---------- Cards and sections ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* One step of "organisation, then venue, then court, then slots" */
+.step {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.step-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* A panel inside a card, e.g. the weekly-booking preview or the add-slots form */
+.inset {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---------- Lists of rows (bookings, slots, waitlist places) ---------- */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+.row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.row-title {
+  font-weight: 600;
+}
+
+.row-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* A row with something opened under it (the weekly-booking panel) */
+.row-expanded {
+  flex-basis: 100%;
+}
+
+/* ---------- Chips: pick an organisation, venue or court ---------- */
+
+.chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--primary);
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.chip-detail {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+/* ---------- Badges ---------- */
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-free { color: var(--free); background: var(--free-bg); }
+.badge-taken { color: var(--taken); background: var(--taken-bg); }
+.badge-closed { color: var(--closed); background: var(--closed-bg); }
+.badge-yours { color: var(--yours); background: var(--yours-bg); }
+
+/* ---------- Buttons ---------- */
+
+button {
+  font: inherit;
+}
+
+.btn {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: var(--on-primary);
+}
+
+.btn-danger {
+  color: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.btn-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn:disabled,
+.chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible,
+.chip:focus-visible,
+.btn-link:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Forms ---------- */
+
+input,
+select {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  padding: 8px 10px;
+  max-width: 100%;
+}
+
+input[type='checkbox'] {
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+input[type='number'] {
+  width: 5.5em;
+}
+
+.form-stack {
+  display: grid;
+  gap: 10px;
+}
+
+/* Only the form's own inputs (login, register), not ones nested in rows */
+.form-stack > input {
+  width: 100%;
+}
+
+/* Inline controls that wrap on narrow screens */
+.field-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.day-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.day-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* ---------- Messages ---------- */
+
+.notice {
+  padding: 10px 12px;
+  border-radius: var(--radius-small);
+  background: var(--primary-soft);
+  color: var(--text);
+  border-left: 3px solid var(--primary);
+}
+
+.notice-error {
+  background: var(--danger-soft);
+  border-left-color: var(--danger);
+}
+
+.auth-switch {
+  color: var(--muted);
+}
+
+/* Auth card stays narrow and centred */
+.auth-card {
+  max-width: 420px;
+  width: 100%;
+  justify-self: center;
 }

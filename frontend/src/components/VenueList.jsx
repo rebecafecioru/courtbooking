@@ -12,17 +12,24 @@ function VenueList({ organisation, user, bookingsVersion, onBookingsChanged }) {
     }, [organisation.id])
 
     return (
-        <div>
-            <h3>Venues at {organisation.name}</h3>
-            <ul>
-                {venues.map(venue => (
-                    <li key={venue.id}>
-                        <button onClick={() => setSelectedVenue(venue)}>
-                            {venue.name} — {venue.address}
-                        </button>
-                    </li>
-                ))}
-            </ul>
+        <>
+            <div className="step">
+                <span className="step-label">Venue</span>
+                <ul className="chips">
+                    {venues.map(venue => (
+                        <li key={venue.id}>
+                            <button
+                                className="chip"
+                                aria-pressed={selectedVenue?.id === venue.id}
+                                onClick={() => setSelectedVenue(venue)}
+                            >
+                                {venue.name}
+                                <span className="chip-detail">{venue.address}</span>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
 
             {selectedVenue && (
                 <CourtList
@@ -33,7 +40,7 @@ function VenueList({ organisation, user, bookingsVersion, onBookingsChanged }) {
                     onBookingsChanged={onBookingsChanged}
                 />
             )}
-        </div>
+        </>
     )
 }
 

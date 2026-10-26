@@ -62,29 +62,38 @@ function MyWaitlist({ user, bookingsVersion, onBookingsChanged }) {
     }
 
     return (
-        <div>
+        <section className="card">
             <h2>My waitlist</h2>
-            {message && <p>{message}</p>}
+            {message && <p className="notice">{message}</p>}
             {upcoming.length === 0 ? (
-                <p>You're not on any waitlists.</p>
+                <p className="empty">You're not on any waitlists.</p>
             ) : (
-                <ul>
+                <ul className="list">
                     {upcoming.map(entry => (
-                        <li key={entry.id}>
-                            {entry.position === 1 ? 'Next in line' : `Number ${entry.position} in line`} for{' '}
-                            {entry.courtName} at {entry.venueName}:{' '}
-                            {formatDay(entry.startTime)}, {formatTime(entry.startTime)} to {formatTime(entry.endTime)}{' '}
-                            <button
-                                onClick={() => handleLeave(entry)}
-                                disabled={leavingId !== null}
-                            >
-                                {leavingId === entry.id ? 'Leaving...' : 'Leave'}
-                            </button>
+                        <li className="row" key={entry.id}>
+                            <div className="row-main">
+                                <span className="row-title">
+                                    {formatDay(entry.startTime)}, {formatTime(entry.startTime)}–{formatTime(entry.endTime)}
+                                </span>
+                                <span className="row-meta">{entry.courtName} · {entry.venueName}</span>
+                            </div>
+                            <div className="row-actions">
+                                <span className="badge badge-taken">
+                                    {entry.position === 1 ? 'Next in line' : `Number ${entry.position} in line`}
+                                </span>
+                                <button
+                                    className="btn btn-danger"
+                                    onClick={() => handleLeave(entry)}
+                                    disabled={leavingId !== null}
+                                >
+                                    {leavingId === entry.id ? 'Leaving...' : 'Leave'}
+                                </button>
+                            </div>
                         </li>
                     ))}
                 </ul>
             )}
-        </div>
+        </section>
     )
 }
 
