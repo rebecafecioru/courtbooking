@@ -24,6 +24,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+    // Postgres schema migrations (src/main/resources/db/migration)
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
     runtimeOnly 'org.postgresql:postgresql'
@@ -37,6 +40,14 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Real Postgres for the tests in PostgresTests: started by the tests
+    // themselves from downloaded binaries, so no Docker needed. Version 16,
+    // like docker-compose.yml.
+    testImplementation 'io.zonky.test:embedded-postgres:2.1.0'
+    testImplementation enforcedPlatform('io.zonky.test.postgres:embedded-postgres-binaries-bom:16.4.0')
+    testRuntimeOnly 'io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8'
+    testRuntimeOnly 'io.zonky.test.postgres:embedded-postgres-binaries-linux-amd64'
 }
 
 tasks.named('test') {
