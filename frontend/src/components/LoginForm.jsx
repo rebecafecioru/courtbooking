@@ -17,14 +17,19 @@ function LoginForm({ onLogin }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
         })
-            .then(res => {
+            .then(async res => {
+                if (res.status === 429) {
+                    // Too many failed tries: the backend says how long to wait
+                    const body = await res.json().catch(() => ({}))
+                    throw new Error(body.message || 'Too many failed attempts. Please try again later.')
+                }
                 if (!res.ok) {
-                    throw new Error('Login failed')
+                    throw new Error('Could not log in. Check your email and password.')
                 }
                 return res.json()
             })
             .then(data => onLogin(data))
-            .catch(() => setError('Could not log in. Check your email and password.'))
+            .catch(err => setError(err.message))
     }
 
     return (

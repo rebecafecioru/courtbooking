@@ -124,6 +124,14 @@ database owner can create it on Postgres 13 and later.
   duplicates a slot the court already has
 - **JWT authentication** with role-based access (`PUBLIC_USER`,
   `ORG_ADMIN`, `SUPER_ADMIN`)
+- **Login brute-force protection** — at most 5 failed logins per email from
+  one address, and 20 per address across all emails, in any 15 minutes; then
+  `429 Too Many Requests` with `Retry-After`. Limited per address *and* email
+  so nobody can lock someone else out by guessing at their account. Exact
+  under concurrency: each attempt reserves its place atomically before the
+  password is checked, so 50 simultaneous guesses get exactly 5 tries
+  (`LoginAttemptConcurrencyTest`). Kept in memory, so per server; several
+  servers would need a shared store
 - **Zero-setup local dev** — runs on an in-memory H2 database with seed
   data out of the box; a separate Postgres profile is provided for real
   deployment
@@ -249,7 +257,7 @@ notification bell. CI runs both sets on every push.
 | Method | Endpoint                              | Access          | Description                          |
 |--------|----------------------------------------|-----------------|---------------------------------------|
 | POST   | `/api/auth/register`                   | Public          | Create an account                     |
-| POST   | `/api/auth/login`                      | Public          | Get a JWT                             |
+| POST   | `/api/auth/login`                      | Public          | Get a JWT (401 if wrong; 429 + `Retry-After` after too many failures) |
 | GET    | `/api/organisations`                   | Public          | List organisations                    |
 | GET    | `/api/venues?organisationId=`          | Public          | List venues                           |
 | GET    | `/api/courts?venueId=`                 | Public          | List courts                           |

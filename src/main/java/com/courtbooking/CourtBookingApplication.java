@@ -2,8 +2,10 @@ package com.courtbooking;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling // e.g. LoginAttemptService's clean-up
 public class CourtBookingApplication {
     public static void main(String[] args) {
         SpringApplication.run(CourtBookingApplication.class, args);

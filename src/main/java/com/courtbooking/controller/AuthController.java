@@ -8,6 +8,8 @@ import com.courtbooking.dto.AuthDtos.RegisterRequest;
 import com.courtbooking.model.AppUser;
 import com.courtbooking.model.Role;
 import com.courtbooking.repository.AppUserRepository;
+import com.courtbooking.service.LoginAttemptService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,13 +25,16 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
+    private final LoginAttemptService loginAttemptService;
 
     public AuthController(AppUserRepository appUserRepository, PasswordEncoder passwordEncoder,
-                           AuthenticationManager authenticationManager, JwtUtil jwtUtil) {
+                           AuthenticationManager authenticationManager, JwtUtil jwtUtil,
+                           LoginAttemptService loginAttemptService) {
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @PostMapping("/register")
@@ -46,9 +51,16 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
+        // Throws (429) if this IP has had too many failed logins, for this
+        // email or overall. The client's real address, even behind nginx:
+        // see server.forward-headers-strategy in application-postgres.properties
+        LoginAttemptService.Attempt attempt = loginAttemptService.tryAcquire(http.getRemoteAddr(), request.email());
+
+        // A wrong password throws here (401), leaving the attempt counted
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password()));
+        loginAttemptService.succeeded(attempt);
 
         AppUser user = appUserRepository.findByEmail(request.email()).orElseThrow();
         String token = jwtUtil.generateToken(user.getEmail());

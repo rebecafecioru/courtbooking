@@ -7,7 +7,10 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import com.courtbooking.service.LoginAttemptService.TooManyAttemptsException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -65,6 +68,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(HttpStatus.NOT_FOUND, ex.getMessage()));
+    }
+
+    // Wrong email or password. Same message for both, so it doesn't reveal
+    // which emails have accounts.
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> handleBadLogin(AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(body(HttpStatus.UNAUTHORIZED, "Email or password is incorrect."));
+    }
+
+    // Too many failed logins: 429, and Retry-After says how many seconds to wait
+    @ExceptionHandler(TooManyAttemptsException.class)
+    public ResponseEntity<Map<String, Object>> handleTooManyAttempts(TooManyAttemptsException ex) {
+        // Rounded up: rounding down would tell clients to retry a moment too early
+        long seconds = Math.max(1, (ex.getRetryAfter().toMillis() + 999) / 1000);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))
+                .body(body(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
