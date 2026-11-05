@@ -1,5 +1,9 @@
 package com.courtbooking.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -15,6 +19,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(SlotNotAvailableException.class)
     public ResponseEntity<Map<String, Object>> handleSlotTaken(SlotNotAvailableException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body(HttpStatus.CONFLICT, ex.getMessage()));
@@ -29,6 +35,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(body(HttpStatus.CONFLICT, "This slot was just booked by someone else. Please pick another."));
+    }
+
+    // The database's own last line of defence: the unique booking per slot, no
+    // overlapping slots on a court, unique emails. Normally the app's checks
+    // catch these first; reaching the database means two requests raced, so
+    // it's a conflict, not a server error. The SQL detail stays in the log.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.info("Refused by a database constraint: {}", ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(HttpStatus.CONFLICT,
+                "That clashes with something that was just changed. Please refresh and try again."));
+    }
+
+    // Postgres gave up waiting for a lock, or broke a deadlock by cancelling
+    // this request. Nothing was changed, so trying again is safe.
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleLockFailure(PessimisticLockingFailureException ex) {
+        log.warn("Lock failure: {}", ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(HttpStatus.CONFLICT,
+                "That court is busy right now. Please try again."));
     }
 
     @ExceptionHandler(BadRequestException.class)

@@ -30,7 +30,8 @@ halves can also have different slot lengths, say 60 minutes on the hall and
 90 on a half, so slots clash whenever their times overlap, not just when they
 match exactly.
 
-`BookingService` defends against it with three independent layers:
+`BookingService` defends against it with three independent layers, and the
+database adds a fourth:
 
 1. **Pessimistic locks** — every request first locks the hall's top-level
    court row, then every slot that could clash with the one it's touching
@@ -47,6 +48,14 @@ match exactly.
 3. **Database-level unique constraint** — `Booking.time_slot_id` is unique.
    Even if both of the above were somehow bypassed, Postgres itself
    physically cannot store two `Booking` rows for the same slot.
+4. **Database-level exclusion constraint** — a court can't have two slots
+   whose times overlap (`EXCLUDE USING gist (court_id WITH =,
+   tsrange(start_time, end_time) WITH &&)`), so two clashing slots can't
+   exist to be booked in the first place.
+
+If a request ever does reach layer 3 or 4, the API answers `409 Conflict`
+("please try again"), not a server error. The same goes for Postgres
+breaking a deadlock.
 
 This is proven with real concurrency tests. `BookingServiceConcurrencyTest`
 fires two booking requests at the same slot from two threads at the same
@@ -57,6 +66,29 @@ against a half (`FullHallVersusHalfConcurrencyTest`,
 (`WaitlistConcurrencyTest`), blocking against booking
 (`SlotBlockingConcurrencyTest`) and slot generation against booking
 (`SlotGenerationConcurrencyTest`).
+
+**They all run on real Postgres too**, not just the in-memory H2 used for
+quick local runs. H2's locking isn't Postgres's, and production runs on
+Postgres, so that's where the guarantees have to hold. Each test has a
+one-line twin (`...OnPostgresTest`) that runs the same code against
+Postgres 16, started by the tests themselves (no Docker needed; see
+`src/test/java/com/courtbooking/postgres`).
+
+## Database schema
+
+On Postgres the schema comes from versioned Flyway migrations in
+`src/main/resources/db/migration`, and Hibernate only *validates* that the
+entities match it (`ddl-auto=validate`). To change the schema, add a new
+`V2__...sql` file; never edit one that has already run. The Postgres tests
+start from an empty database each run, so a migration that doesn't match the
+entities fails the build.
+
+A database created before Flyway was added (by the old `ddl-auto=update`) is
+picked up as already at version 1 (`baseline-on-migrate`), so it keeps
+working. It won't have the constraints and indexes V1 added, though, so for a
+deployment that matters, recreate it or apply V1's extra constraints by hand.
+The `btree_gist` extension V1 enables is standard and trusted, so a normal
+database owner can create it on Postgres 13 and later.
 
 ## Features
 
@@ -193,8 +225,11 @@ it also works behind a hosting platform's HTTPS proxy.
 ./gradlew test
 ```
 
-This includes the concurrency test described above — worth reading even if
-you don't run it, it's the part of this project I'm most proud of.
+This runs everything twice where it matters: on in-memory H2, and the
+service and concurrency tests again on a real Postgres 16 that the tests
+download and start themselves (the first run takes a little longer while the
+binaries download). The concurrency tests are worth reading even if you don't
+run them; they're the part of this project I'm most proud of.
 
 ## API overview
 
