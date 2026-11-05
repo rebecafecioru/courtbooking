@@ -231,6 +231,19 @@ download and start themselves (the first run takes a little longer while the
 binaries download). The concurrency tests are worth reading even if you don't
 run them; they're the part of this project I'm most proud of.
 
+The frontend has its own tests (Vitest and React Testing Library), with
+`fetch` faked so no backend is needed:
+
+```bash
+cd frontend
+npm test
+```
+
+They check components the way a user sees them: which badge and buttons
+each slot shows, that booking every week sends only the free weeks and copes
+with one being taken in the meantime, form error messages, and the
+notification bell. CI runs both sets on every push.
+
 ## API overview
 
 | Method | Endpoint                              | Access          | Description                          |

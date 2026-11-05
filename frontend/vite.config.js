@@ -14,4 +14,10 @@ export default defineConfig({
       '/api': { target: 'http://localhost:8080', changeOrigin: false },
     },
   },
+  // npm test: components rendered in a simulated browser (jsdom), with
+  // fetch faked by src/test/fakeBackend.js, so no backend is needed
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+  },
 })
